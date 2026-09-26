@@ -39,6 +39,7 @@ type FileMetadata struct {
 	CloudAccountID     string    `json:"cloud_account_id" bson:"cloud_account_id"`
 	RemoteFileID       string    `json:"remote_file_id" bson:"remote_file_id"`
 	FileName           string    `json:"file_name" bson:"file_name"`
+	Size               int64     `json:"size" bson:"size"`
 	FileSize           int64     `json:"file_size" bson:"file_size"`
 	MimeType           string    `json:"mime_type" bson:"mime_type"`
 	VirtualPath        string    `json:"virtual_path" bson:"virtual_path"`
@@ -51,8 +52,8 @@ type FileMetadata struct {
 	UpdatedAt          time.Time `json:"updated_at" bson:"updated_at"`
 
 	// Joined fields
-	Provider string `json:"provider,omitempty" bson:"-"`
-	Email    string `json:"email,omitempty" bson:"-"`
+	Provider string `json:"provider,omitempty" bson:"provider,omitempty"`
+	Email    string `json:"email,omitempty" bson:"email,omitempty"`
 }
 
 type UserSetting struct {

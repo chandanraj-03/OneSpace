@@ -152,15 +152,24 @@ function handleRoute() {
 
 	if (googleParam === 'connected') {
 		showToast('Google Drive successfully connected to your OneSpace pool!', 'success');
-		if (isUserLoggedIn()) refreshAccounts();
+		if (isUserLoggedIn()) {
+			refreshAccounts();
+			api.runSync().then(() => renderCurrentView()).catch(() => {});
+		}
 		cleanUrlOAuthParams();
 	} else if (googlePhotosParam === 'connected') {
 		showToast('Google Photos successfully connected to your OneSpace library!', 'success');
-		if (isUserLoggedIn()) refreshAccounts();
+		if (isUserLoggedIn()) {
+			refreshAccounts();
+			api.runSync().then(() => renderCurrentView()).catch(() => {});
+		}
 		cleanUrlOAuthParams();
 	} else if (dropboxParam === 'connected') {
 		showToast('Dropbox successfully connected to your OneSpace pool!', 'success');
-		if (isUserLoggedIn()) refreshAccounts();
+		if (isUserLoggedIn()) {
+			refreshAccounts();
+			api.runSync().then(() => renderCurrentView()).catch(() => {});
+		}
 		cleanUrlOAuthParams();
 	} else if (errorParam) {
 		showToast(decodeURIComponent(errorParam), 'error');
@@ -1105,8 +1114,12 @@ function renderFileGridHtml(files) {
 				const size = file.is_folder ? 'Folder' : formatBytes(file.size);
 				const providerMeta = getProviderMeta(file.provider);
 
+				const targetFolderPath = file.is_folder
+					? ((file.virtual_path || '/').endsWith('/') ? `${file.virtual_path || '/'}${file.file_name}/` : `${file.virtual_path || '/'}/${file.file_name}/`)
+					: (file.virtual_path || '/');
+
 				return `
-					<div class="file-card ${isSelected ? 'selected' : ''}" data-file-id="${file.id}" data-is-folder="${file.is_folder ? 'true' : 'false'}" data-file-path="${file.virtual_path}">
+					<div class="file-card ${isSelected ? 'selected' : ''}" data-file-id="${file.id}" data-is-folder="${file.is_folder ? 'true' : 'false'}" data-file-path="${targetFolderPath}">
 						<div class="card-top">
 							<div class="card-icon">${icon}</div>
 							<div class="card-actions">
@@ -1156,8 +1169,12 @@ function renderFileTableHtml(files) {
 						const size = file.is_folder ? '—' : formatBytes(file.size);
 						const providerMeta = getProviderMeta(file.provider);
 
+						const targetFolderPath = file.is_folder
+							? ((file.virtual_path || '/').endsWith('/') ? `${file.virtual_path || '/'}${file.file_name}/` : `${file.virtual_path || '/'}/${file.file_name}/`)
+							: (file.virtual_path || '/');
+
 						return `
-							<tr class="${isSelected ? 'selected' : ''}" data-file-id="${file.id}" data-is-folder="${file.is_folder ? 'true' : 'false'}" data-file-path="${file.virtual_path}">
+							<tr class="${isSelected ? 'selected' : ''}" data-file-id="${file.id}" data-is-folder="${file.is_folder ? 'true' : 'false'}" data-file-path="${targetFolderPath}">
 								<td>
 									<div class="table-file-cell">
 										${icon}
@@ -1579,8 +1596,12 @@ function initGlobalSearch() {
 				if (!files.length) {
 					list.innerHTML = `<div style="padding:1rem;color:var(--text-muted);text-align:center;font-size:0.84rem;">No files found matching "${escapeHtml(val)}"</div>`;
 				} else {
-					list.innerHTML = files.map((f) => `
-						<div class="search-result-item" data-search-id="${f.id}" data-is-folder="${f.is_folder ? 'true' : 'false'}" data-path="${f.virtual_path}">
+					list.innerHTML = files.map((f) => {
+						const itemPath = f.is_folder
+							? ((f.virtual_path || '/').endsWith('/') ? `${f.virtual_path || '/'}${f.file_name}/` : `${f.virtual_path || '/'}/${f.file_name}/`)
+							: (f.virtual_path || '/');
+						return `
+						<div class="search-result-item" data-search-id="${f.id}" data-is-folder="${f.is_folder ? 'true' : 'false'}" data-path="${itemPath}">
 							<div>${getFileIcon(f)}</div>
 							<div class="search-item-info">
 								<div class="search-item-title truncate">${escapeHtml(f.file_name)}</div>
@@ -1588,7 +1609,8 @@ function initGlobalSearch() {
 							</div>
 							<div class="search-item-date tabular-nums">${formatDate(f.updated_at || f.created_at)}</div>
 						</div>
-					`).join('');
+					`;
+					}).join('');
 
 					list.querySelectorAll('.search-result-item').forEach((item) => {
 						item.addEventListener('click', () => {

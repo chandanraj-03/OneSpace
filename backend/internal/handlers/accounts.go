@@ -251,6 +251,9 @@ func (h *AccountHandler) MegaConnect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.db.UpsertCloudAccount(acc)
+	go func(uid string) {
+		_, _ = services.Sync.RunDeltaSync(context.Background(), uid)
+	}(user.ID)
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -414,6 +417,9 @@ func (h *AccountHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) 
 			UpdatedAt:            now,
 		}
 		h.db.UpsertCloudAccount(acc)
+		go func(uid string) {
+			_, _ = services.Sync.RunDeltaSync(context.Background(), uid)
+		}(userID)
 
 		frontendURL.Fragment = "storage"
 		q := frontendURL.Query()
@@ -499,6 +505,9 @@ func (h *AccountHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) 
 		UpdatedAt:            now,
 	}
 	h.db.UpsertCloudAccount(acc)
+	go func(uid string) {
+		_, _ = services.Sync.RunDeltaSync(context.Background(), uid)
+	}(userID)
 
 	frontendURL.Fragment = "storage"
 	q := frontendURL.Query()
@@ -617,6 +626,9 @@ func (h *AccountHandler) DropboxCallback(w http.ResponseWriter, r *http.Request)
 		UpdatedAt:            now,
 	}
 	h.db.UpsertCloudAccount(acc)
+	go func(uid string) {
+		_, _ = services.Sync.RunDeltaSync(context.Background(), uid)
+	}(userID)
 
 	frontendURL.Fragment = "storage"
 	q := frontendURL.Query()

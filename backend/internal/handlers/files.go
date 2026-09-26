@@ -15,6 +15,7 @@ import (
 	"onespace/backend/internal/database"
 	"onespace/backend/internal/middleware"
 	"onespace/backend/internal/models"
+	"onespace/backend/internal/services"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -45,6 +46,11 @@ func (h *FileHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
 	limit := 50
 	if l, err := strconv.Atoi(limitStr); err == nil && l > 0 {
 		limit = l
+	}
+
+	// Auto-trigger sync if user has active cloud accounts but no files indexed yet
+	if h.db.CountFilesByUser(user.ID) == 0 && len(h.db.ListActiveCloudAccounts(user.ID)) > 0 {
+		_, _ = services.Sync.RunDeltaSync(r.Context(), user.ID)
 	}
 
 	var files []models.FileMetadata

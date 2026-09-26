@@ -77,14 +77,14 @@ func (a *GoogleDriveAdapter) FetchStructure(ctx context.Context) ([]models.FileM
 		return nil, err
 	}
 
-	var results []models.FileMetadata
+	var allDriveFiles []*drive.File
 	pageToken := ""
 
 	for {
 		call := srv.Files.List().
 			Q("trashed = false").
-			Fields("nextPageToken, files(id, name, mimeType, size, parents, createdTime, modifiedTime)").
-			PageSize(100)
+			Fields("nextPageToken, files(id, name, mimeType, size, parents, starred, createdTime, modifiedTime)").
+			PageSize(1000)
 
 		if pageToken != "" {
 			call = call.PageToken(pageToken)
@@ -95,39 +95,87 @@ func (a *GoogleDriveAdapter) FetchStructure(ctx context.Context) ([]models.FileM
 			return nil, err
 		}
 
-		for _, f := range resp.Files {
-			isFolder := f.MimeType == "application/vnd.google-apps.folder"
-			var parentID *string
-			if len(f.Parents) > 0 {
-				p := f.Parents[0]
-				parentID = &p
-			}
-
-			cTime := f.CreatedTime
-			mTime := f.ModifiedTime
-
-			results = append(results, models.FileMetadata{
-				ID:                 uuid.NewString(),
-				UserID:             a.account.UserID,
-				CloudAccountID:     a.account.ID,
-				RemoteFileID:       f.Id,
-				FileName:           f.Name,
-				FileSize:           f.Size,
-				MimeType:           f.MimeType,
-				VirtualPath:        "/",
-				RemoteParentID:     parentID,
-				IsFolder:           isFolder,
-				RemoteCreatedTime:  &cTime,
-				RemoteModifiedTime: &mTime,
-				CreatedAt:          time.Now(),
-				UpdatedAt:          time.Now(),
-			})
-		}
+		allDriveFiles = append(allDriveFiles, resp.Files...)
 
 		pageToken = resp.NextPageToken
 		if pageToken == "" {
 			break
 		}
+	}
+
+	byId := make(map[string]*drive.File, len(allDriveFiles))
+	for _, f := range allDriveFiles {
+		byId[f.Id] = f
+	}
+
+	buildFolderPath := func(f *drive.File) string {
+		if len(f.Parents) == 0 {
+			return "/"
+		}
+		parentID := f.Parents[0]
+		if parentID == "" || parentID == "root" {
+			return "/"
+		}
+
+		var segments []string
+		visited := make(map[string]bool)
+		currID := parentID
+
+		for currID != "" && currID != "root" && !visited[currID] {
+			visited[currID] = true
+			parentFile, ok := byId[currID]
+			if !ok {
+				break
+			}
+			segments = append([]string{parentFile.Name}, segments...)
+			if len(parentFile.Parents) > 0 {
+				currID = parentFile.Parents[0]
+			} else {
+				currID = ""
+			}
+		}
+
+		if len(segments) == 0 {
+			return "/"
+		}
+		return "/" + strings.Join(segments, "/") + "/"
+	}
+
+	var results []models.FileMetadata
+	now := time.Now()
+
+	for _, f := range allDriveFiles {
+		isFolder := f.MimeType == "application/vnd.google-apps.folder"
+		var parentID *string
+		if len(f.Parents) > 0 {
+			p := f.Parents[0]
+			parentID = &p
+		}
+
+		cTime := f.CreatedTime
+		mTime := f.ModifiedTime
+		vPath := buildFolderPath(f)
+
+		results = append(results, models.FileMetadata{
+			ID:                 uuid.NewString(),
+			UserID:             a.account.UserID,
+			CloudAccountID:     a.account.ID,
+			RemoteFileID:       f.Id,
+			FileName:           f.Name,
+			Size:               f.Size,
+			FileSize:           f.Size,
+			MimeType:           f.MimeType,
+			VirtualPath:        vPath,
+			RemoteParentID:     parentID,
+			IsFolder:           isFolder,
+			IsStarred:          f.Starred,
+			RemoteCreatedTime:  &cTime,
+			RemoteModifiedTime: &mTime,
+			CreatedAt:          now,
+			UpdatedAt:          now,
+			Provider:           a.account.Provider,
+			Email:              a.account.Email,
+		})
 	}
 
 	return results, nil

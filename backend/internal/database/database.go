@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"onespace/backend/internal/models"
+	"onespace/backend/internal/utils"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -374,19 +375,56 @@ func (d *Database) GetFileByRemoteID(userID, accountID, remoteID string) *models
 	return nil
 }
 
+func (d *Database) ListUsersWithActiveAccounts() []string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	seen := make(map[string]bool)
+	var userIDs []string
+	for _, a := range d.accounts {
+		if a.Status == "active" && !seen[a.UserID] {
+			seen[a.UserID] = true
+			userIDs = append(userIDs, a.UserID)
+		}
+	}
+	return userIDs
+}
+
+func (d *Database) CountFilesByUser(userID string) int {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+	count := 0
+	for _, f := range d.files {
+		if f.UserID == userID {
+			count++
+		}
+	}
+	return count
+}
+
 func (d *Database) ListFilesByPath(userID, virtualPath string) []models.FileMetadata {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
+	normPath := utils.NormalizePath(virtualPath)
 	var list []models.FileMetadata
 	for _, f := range d.files {
-		if f.UserID == userID && f.VirtualPath == virtualPath {
-			ca, ok := d.accounts[f.CloudAccountID]
-			if ok && ca.Status == "active" {
-				clone := *f
-				clone.Provider = ca.Provider
-				clone.Email = ca.Email
-				list = append(list, clone)
+		if f.UserID == userID && utils.NormalizePath(f.VirtualPath) == normPath {
+			clone := *f
+			if f.CloudAccountID != "" {
+				if ca, ok := d.accounts[f.CloudAccountID]; ok {
+					if ca.Status != "active" {
+						continue
+					}
+					clone.Provider = ca.Provider
+					clone.Email = ca.Email
+				}
 			}
+			if clone.Size == 0 && clone.FileSize > 0 {
+				clone.Size = clone.FileSize
+			}
+			if clone.FileSize == 0 && clone.Size > 0 {
+				clone.FileSize = clone.Size
+			}
+			list = append(list, clone)
 		}
 	}
 
@@ -406,15 +444,25 @@ func (d *Database) SearchFiles(userID, term string, limit int) []models.FileMeta
 	var list []models.FileMetadata
 	for _, f := range d.files {
 		if f.UserID == userID && strings.Contains(strings.ToLower(f.FileName), clean) {
-			ca, ok := d.accounts[f.CloudAccountID]
-			if ok && ca.Status == "active" {
-				clone := *f
-				clone.Provider = ca.Provider
-				clone.Email = ca.Email
-				list = append(list, clone)
-				if limit > 0 && len(list) >= limit {
-					break
+			clone := *f
+			if f.CloudAccountID != "" {
+				if ca, ok := d.accounts[f.CloudAccountID]; ok {
+					if ca.Status != "active" {
+						continue
+					}
+					clone.Provider = ca.Provider
+					clone.Email = ca.Email
 				}
+			}
+			if clone.Size == 0 && clone.FileSize > 0 {
+				clone.Size = clone.FileSize
+			}
+			if clone.FileSize == 0 && clone.Size > 0 {
+				clone.FileSize = clone.Size
+			}
+			list = append(list, clone)
+			if limit > 0 && len(list) >= limit {
+				break
 			}
 		}
 	}
@@ -427,13 +475,23 @@ func (d *Database) ListStarredFiles(userID string) []models.FileMetadata {
 	var list []models.FileMetadata
 	for _, f := range d.files {
 		if f.UserID == userID && f.IsStarred {
-			ca, ok := d.accounts[f.CloudAccountID]
-			if ok && ca.Status == "active" {
-				clone := *f
-				clone.Provider = ca.Provider
-				clone.Email = ca.Email
-				list = append(list, clone)
+			clone := *f
+			if f.CloudAccountID != "" {
+				if ca, ok := d.accounts[f.CloudAccountID]; ok {
+					if ca.Status != "active" {
+						continue
+					}
+					clone.Provider = ca.Provider
+					clone.Email = ca.Email
+				}
 			}
+			if clone.Size == 0 && clone.FileSize > 0 {
+				clone.Size = clone.FileSize
+			}
+			if clone.FileSize == 0 && clone.Size > 0 {
+				clone.FileSize = clone.Size
+			}
+			list = append(list, clone)
 		}
 	}
 	return list
@@ -445,13 +503,23 @@ func (d *Database) ListRecentFiles(userID string) []models.FileMetadata {
 	var list []models.FileMetadata
 	for _, f := range d.files {
 		if f.UserID == userID && !f.IsFolder {
-			ca, ok := d.accounts[f.CloudAccountID]
-			if ok && ca.Status == "active" {
-				clone := *f
-				clone.Provider = ca.Provider
-				clone.Email = ca.Email
-				list = append(list, clone)
+			clone := *f
+			if f.CloudAccountID != "" {
+				if ca, ok := d.accounts[f.CloudAccountID]; ok {
+					if ca.Status != "active" {
+						continue
+					}
+					clone.Provider = ca.Provider
+					clone.Email = ca.Email
+				}
 			}
+			if clone.Size == 0 && clone.FileSize > 0 {
+				clone.Size = clone.FileSize
+			}
+			if clone.FileSize == 0 && clone.Size > 0 {
+				clone.FileSize = clone.Size
+			}
+			list = append(list, clone)
 		}
 	}
 	sort.Slice(list, func(i, j int) bool {
