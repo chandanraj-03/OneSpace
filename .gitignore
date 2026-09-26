@@ -15,3 +15,5 @@ dist-ssr/
 *.local
 .DS_Store
 *.log
+bin/
+*.exe

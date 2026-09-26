@@ -4,14 +4,12 @@ services:
   # ---------------------------------------------------------------------------
   - type: web
     name: onespace-api
-    runtime: node
+    runtime: go
     plan: free
     region: oregon
-    buildCommand: npm --prefix backend install
-    startCommand: npm --prefix backend start
+    buildCommand: cd backend && go build -o bin/server ./cmd/server
+    startCommand: ./backend/bin/server
     envVars:
-      - key: NODE_ENV
-        value: production
       - key: APP_MODE
         value: hosted
       - key: PORT

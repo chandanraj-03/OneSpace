@@ -5,11 +5,12 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "npm-run-all --parallel dev:api dev:web",
-    "build": "npm run build:web",
+    "build": "npm run build:web && npm run build:api",
     "build:web": "npm --prefix frontend run build",
+    "build:api": "cd backend && go build -o bin/server ./cmd/server",
     "dev:web": "npm --prefix frontend run dev -- --host",
-    "dev:api": "npm --prefix backend run dev",
-    "start": "npm --prefix backend start"
+    "dev:api": "cd backend && go run ./cmd/server",
+    "start": "cd backend && go run ./cmd/server"
   },
   "keywords": [],
   "author": "Chandan Raj",
@@ -17,7 +18,6 @@
   "type": "module",
   "private": true,
   "workspaces": [
-    "backend",
     "frontend"
   ],
   "devDependencies": {
