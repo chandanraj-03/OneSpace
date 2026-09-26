@@ -8,8 +8,8 @@ Use these callback URLs depending on whether you are running locally or deployed
 
 | Provider | Local Redirect URI | Render Cloud Redirect URI |
 | --- | --- | --- |
-| Google (Drive, Photos, Login) | `http://localhost:8787/api/accounts/google/callback` | `https://onespace-api.onrender.com/api/accounts/google/callback` |
-| Dropbox | `http://localhost:8787/api/accounts/dropbox/callback` | `https://onespace-api.onrender.com/api/accounts/dropbox/callback` |
+| Google (Drive, Photos, Login) | `http://localhost:8787/api/accounts/google/callback` | `https://onespace-api-hkdi.onrender.com/api/accounts/google/callback` |
+| Dropbox | `http://localhost:8787/api/accounts/dropbox/callback` | `https://onespace-api-hkdi.onrender.com/api/accounts/dropbox/callback` |
 
 > If you deploy to another domain or change ports, update the redirect URIs in both the provider developer dashboard and your environment configuration (`backend/.env` or Render Dashboard).
 

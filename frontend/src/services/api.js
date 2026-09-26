@@ -1,6 +1,27 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8787/api';
-const WS_BASE_URL = import.meta.env.VITE_WS_BASE_URL
-	|| API_BASE_URL.replace(/^http/, 'ws').replace(/\/api$/, '/ws/uploads');
+function resolveApiBaseUrl() {
+	const raw = import.meta.env.VITE_API_BASE_URL;
+	if (raw && raw !== 'https://onespace-api.onrender.com/api') {
+		return raw;
+	}
+	if (typeof window !== 'undefined' && window.location.hostname.endsWith('.onrender.com')) {
+		return 'https://onespace-api-hkdi.onrender.com/api';
+	}
+	return raw || 'http://localhost:8787/api';
+}
+
+function resolveWsBaseUrl(apiBase) {
+	const raw = import.meta.env.VITE_WS_BASE_URL;
+	if (raw && raw !== 'wss://onespace-api.onrender.com/ws/uploads') {
+		return raw;
+	}
+	if (typeof window !== 'undefined' && window.location.hostname.endsWith('.onrender.com')) {
+		return 'wss://onespace-api-hkdi.onrender.com/ws/uploads';
+	}
+	return raw || apiBase.replace(/^http/, 'ws').replace(/\/api$/, '/ws/uploads');
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
+const WS_BASE_URL = resolveWsBaseUrl(API_BASE_URL);
 
 async function request(path, options = {}) {
 	const response = await fetch(`${API_BASE_URL}${path}`, {
