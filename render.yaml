@@ -1,0 +1,72 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Backend API Web Service (Free Tier)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: onespace-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: npm --prefix backend install
+    startCommand: npm --prefix backend start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_MODE
+        value: hosted
+      - key: PORT
+        value: 10000
+      - key: CORS_ORIGIN
+        fromService:
+          type: web
+          name: onespace-web
+          property: url
+      - key: FRONTEND_URL
+        fromService:
+          type: web
+          name: onespace-web
+          property: url
+      - key: MONGODB_URI
+        sync: false
+      - key: ONESPACE_SECRET_HALF
+        generateValue: true
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_COOKIE_NAME
+        value: onespace_session
+      - key: AUTH_SESSION_TTL_HOURS
+        value: 336
+      - key: SYNC_INTERVAL_MINUTES
+        value: 5
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_REDIRECT_URI
+        value: https://onespace-api.onrender.com/api/accounts/google/callback
+      - key: DROPBOX_CLIENT_ID
+        sync: false
+      - key: DROPBOX_CLIENT_SECRET
+        sync: false
+      - key: DROPBOX_REDIRECT_URI
+        value: https://onespace-api.onrender.com/api/accounts/dropbox/callback
+
+  # ---------------------------------------------------------------------------
+  # Frontend Static Site (Free Tier)
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: onespace-web
+    runtime: static
+    plan: free
+    region: oregon
+    buildCommand: npm --prefix frontend install && npm --prefix frontend run build
+    staticPublishPath: frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://onespace-api.onrender.com/api
+      - key: VITE_WS_BASE_URL
+        value: wss://onespace-api.onrender.com/ws/uploads

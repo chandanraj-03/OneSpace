@@ -1,0 +1,26 @@
+{
+  "name": "onespace",
+  "version": "1.0.0",
+  "description": "OneSpace - Unified Cloud Drive Aggregator",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "npm-run-all --parallel dev:api dev:web",
+    "build": "npm run build:web",
+    "build:web": "npm --prefix frontend run build",
+    "dev:web": "npm --prefix frontend run dev -- --host",
+    "dev:api": "npm --prefix backend run dev",
+    "start": "npm --prefix backend start"
+  },
+  "keywords": [],
+  "author": "Chandan Raj",
+  "license": "ISC",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "devDependencies": {
+    "npm-run-all": "^4.1.5"
+  }
+}

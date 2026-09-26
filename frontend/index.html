@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+	<meta charset="UTF-8" />
+	<link rel="icon" type="image/svg+xml" href="/src/assets/logo.webp" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<title>OneSpace — Unified Multi-Cloud Drive Aggregator</title>
+	<meta name="description" content="Aggregate, search, and manage Google Drive, Dropbox, and MEGA storage under a single high-performance drive." />
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+	<link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+	<div id="app" class="app-root">
+		<!-- Precision Header -->
+		<header class="app-header">
+			<div class="header-left">
+				<button type="button" id="btn-mobile-menu" class="btn-icon mobile-only" aria-label="Toggle navigation">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/></svg>
+				</button>
+				<a href="#home" class="brand-link">
+					<span class="brand-logo-wrap">
+						<img src="/src/assets/logo.webp" alt="OneSpace" class="brand-logo" onerror="this.style.display='none'">
+					</span>
+					<span class="brand-title">OneSpace</span>
+				</a>
+			</div>
+
+			<div class="header-center">
+				<div class="search-box">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="search-icon"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+					<input type="text" id="global-search-input" placeholder="Search files, folders across all clouds..." autocomplete="off" spellcheck="false">
+					<kbd class="search-kbd" id="search-kbd-hint">Ctrl K</kbd>
+					<button type="button" id="btn-search-clear" class="btn-search-clear hidden" aria-label="Clear search">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+					</button>
+
+					<!-- Search Dropdown -->
+					<div id="search-dropdown" class="search-dropdown hidden">
+						<div id="search-results-list" class="search-results-list"></div>
+					</div>
+				</div>
+			</div>
+
+			<div class="header-right">
+				<div id="header-storage-pill" class="storage-pill" title="Aggregated Cloud Storage Usage">
+					<span class="storage-pill-dot"></span>
+					<span id="header-storage-text" class="tabular-nums">0 B / 0 B</span>
+					<div class="header-storage-bar-mini">
+						<div id="header-storage-bar-fill" class="header-storage-bar-fill" style="width: 0%;"></div>
+					</div>
+				</div>
+				<button type="button" id="btn-sync-all" class="btn-icon" title="Synchronize all cloud accounts">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 21h5v-5"/></svg>
+				</button>
+				<a href="#landing" class="btn-icon" title="View Landing Page" aria-label="Landing Page">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg>
+				</a>
+				<a href="#login" id="header-btn-auth" class="btn-icon" title="Account / Sign In" aria-label="Account">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
+				</a>
+				<button type="button" id="btn-theme-toggle" class="btn-icon" title="Toggle dark/light theme">
+					<span id="theme-icon-container"></span>
+				</button>
+			</div>
+		</header>
+
+		<!-- Main Workspace Layout -->
+		<div class="app-layout">
+			<!-- Sidebar -->
+			<aside class="app-sidebar" id="app-sidebar">
+				<div class="sidebar-action-wrap">
+					<div class="dropdown-container">
+						<button type="button" id="btn-new-menu" class="btn-new">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" class="icon-svg"><path d="M12 5v14M5 12h14"/></svg>
+							<span>New</span>
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-svg icon-new-chevron"><path d="m6 9 6 6 6-6"/></svg>
+						</button>
+						<div id="new-dropdown" class="dropdown-menu hidden">
+							<button type="button" class="dropdown-item" id="action-new-folder">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg icon-folder"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+								<span>New Folder</span>
+							</button>
+							<div class="dropdown-divider"></div>
+							<button type="button" class="dropdown-item" id="action-upload-files">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+								<span>Upload Files</span>
+							</button>
+							<button type="button" class="dropdown-item" id="action-upload-folder">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/><polyline points="12 11 12 17"/><polyline points="9 14 12 11 15 14"/></svg>
+								<span>Upload Folder</span>
+							</button>
+							<div class="dropdown-divider"></div>
+							<a href="#storage" class="dropdown-item" id="action-link-storage">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+								<span>Link Cloud Drive</span>
+							</a>
+						</div>
+					</div>
+					<!-- Hidden file inputs -->
+					<input type="file" id="file-input-files" multiple class="hidden">
+					<input type="file" id="file-input-folder" webkitdirectory directory multiple class="hidden">
+				</div>
+
+				<div class="sidebar-nav-section">
+					<div class="sidebar-section-title">MAIN</div>
+					<nav class="sidebar-nav">
+						<a href="#home" class="nav-item active" data-nav="home">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+							<span class="nav-label">Overview</span>
+						</a>
+						<a href="#drive" class="nav-item" data-nav="drive">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg></span>
+							<span class="nav-label">My Drive</span>
+						</a>
+						<a href="#recent" class="nav-item" data-nav="recent">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+							<span class="nav-label">Recent</span>
+						</a>
+						<a href="#starred" class="nav-item" data-nav="starred">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+							<span class="nav-label">Starred</span>
+						</a>
+						<a href="#shared" class="nav-item" data-nav="shared">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+							<span class="nav-label">Shared</span>
+						</a>
+						<a href="#storage" class="nav-item" data-nav="storage">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><line x1="22" x2="2" y1="12" y2="12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" x2="6.01" y1="16" y2="16"/><line x1="10" x2="10.01" y1="16" y2="16"/></svg></span>
+							<span class="nav-label">Cloud Drives & Pool</span>
+						</a>
+					</nav>
+				</div>
+
+				<div class="sidebar-nav-section">
+					<div class="sidebar-section-title">PORTAL</div>
+					<nav class="sidebar-nav">
+						<a href="#landing" class="nav-item" data-nav="landing">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/></svg></span>
+							<span class="nav-label">Landing Page</span>
+						</a>
+						<a href="#login" class="nav-item" data-nav="login">
+							<span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg></span>
+							<span class="nav-label" id="sidebar-auth-label">Account / Sign In</span>
+						</a>
+					</nav>
+				</div>
+
+				<!-- Connected Cloud Drives Dynamic Quick-Rail -->
+				<div class="sidebar-nav-section" id="sidebar-clouds-section">
+					<div class="sidebar-section-header">
+						<span class="sidebar-section-title">LINKED CLOUDS</span>
+						<a href="#storage" class="sidebar-add-cloud-link" title="Add Cloud Drive">+ Link</a>
+					</div>
+					<div id="sidebar-drives-list" class="sidebar-drives-list">
+						<!-- Injected dynamically by main.js -->
+					</div>
+				</div>
+
+				<div class="sidebar-footer">
+					<div class="storage-widget" id="sidebar-storage-widget">
+						<div class="storage-widget-header">
+							<div class="storage-widget-title-wrap">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg-xs"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/></svg>
+								<span class="storage-widget-title">Storage Pool</span>
+							</div>
+							<span id="sidebar-storage-percent" class="storage-widget-percent tabular-nums">0%</span>
+						</div>
+						<div class="progress-bar-bg" id="sidebar-progress-container">
+							<div id="sidebar-storage-fill" class="progress-bar-fill" style="width: 0%;"></div>
+						</div>
+						<div class="storage-widget-footer">
+							<div id="sidebar-storage-sub" class="storage-widget-sub tabular-nums">0 B of 0 B used</div>
+							<a href="#storage" class="storage-widget-manage-link">Manage</a>
+						</div>
+					</div>
+				</div>
+			</aside>
+
+			<!-- Main Viewport -->
+			<main class="app-main" id="main-content">
+				<!-- Dynamically injected views -->
+			</main>
+		</div>
+
+		<!-- File Drag & Drop Overlay -->
+		<div id="drop-overlay" class="drop-overlay hidden">
+			<div class="drop-card">
+				<div class="drop-icon">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg-lg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>
+				</div>
+				<h3 class="drop-title">Drop files to upload</h3>
+				<p class="drop-sub">Files will automatically distribute across your connected cloud storage pool</p>
+			</div>
+		</div>
+
+		<!-- Floating Upload Queue Toast -->
+		<div id="upload-toast" class="upload-toast hidden">
+			<div class="upload-toast-header" id="upload-toast-header">
+				<div class="upload-toast-title">
+					<span class="upload-spinner"></span>
+					<span id="upload-toast-status">Uploading files...</span>
+				</div>
+				<div class="upload-toast-actions">
+					<button type="button" id="btn-upload-toggle" class="btn-icon-xs" title="Toggle upload list">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-svg"><path d="m6 9 6 6 6-6"/></svg>
+					</button>
+				</div>
+			</div>
+			<div class="upload-toast-progress">
+				<div id="upload-toast-bar" class="upload-toast-bar" style="width: 0%;"></div>
+			</div>
+			<div id="upload-queue-list" class="upload-queue-list hidden"></div>
+		</div>
+
+		<!-- Modals -->
+		<!-- New Folder Modal -->
+		<div id="modal-new-folder" class="modal-backdrop hidden">
+			<div class="modal-card">
+				<div class="modal-header">
+					<h3 class="modal-title">New Folder</h3>
+					<button type="button" class="btn-icon-sm modal-close" aria-label="Close modal">&times;</button>
+				</div>
+				<form id="form-new-folder" class="modal-body">
+					<div class="form-group">
+						<label for="input-new-folder-name" class="form-label">Folder Name</label>
+						<input type="text" id="input-new-folder-name" class="form-input" placeholder="Untitled folder" required autofocus>
+					</div>
+					<div class="modal-actions">
+						<button type="button" class="btn-secondary modal-close">Cancel</button>
+						<button type="submit" class="btn-primary">Create Folder</button>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<!-- Rename Modal -->
+		<div id="modal-rename" class="modal-backdrop hidden">
+			<div class="modal-card">
+				<div class="modal-header">
+					<h3 class="modal-title">Rename Item</h3>
+					<button type="button" class="btn-icon-sm modal-close" aria-label="Close modal">&times;</button>
+				</div>
+				<form id="form-rename" class="modal-body">
+					<input type="hidden" id="rename-file-id">
+					<div class="form-group">
+						<label for="input-rename-name" class="form-label">New Name</label>
+						<input type="text" id="input-rename-name" class="form-input" required autofocus>
+					</div>
+					<div class="modal-actions">
+						<button type="button" class="btn-secondary modal-close">Cancel</button>
+						<button type="submit" class="btn-primary">Save Changes</button>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<!-- Delete Confirmation Modal -->
+		<div id="modal-delete" class="modal-backdrop hidden">
+			<div class="modal-card">
+				<div class="modal-header">
+					<h3 class="modal-title text-danger">Delete Item</h3>
+					<button type="button" class="btn-icon-sm modal-close" aria-label="Close modal">&times;</button>
+				</div>
+				<div class="modal-body">
+					<p id="delete-modal-msg" class="modal-desc">Are you sure you want to delete this item? This action cannot be undone.</p>
+					<div class="modal-actions">
+						<button type="button" class="btn-secondary modal-close">Cancel</button>
+						<button type="button" id="btn-confirm-delete" class="btn-danger">Delete Item</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- File Preview Modal -->
+		<div id="modal-preview" class="modal-backdrop hidden">
+			<div class="modal-card modal-card-lg">
+				<div class="modal-header">
+					<div class="preview-header-info">
+						<h3 id="preview-title" class="modal-title truncate">File Preview</h3>
+						<span id="preview-meta" class="preview-meta-text tabular-nums"></span>
+					</div>
+					<div class="preview-header-actions">
+						<a id="preview-download-btn" href="#" download class="btn-secondary btn-sm">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+							<span>Download</span>
+						</a>
+						<button type="button" class="btn-icon-sm modal-close" aria-label="Close preview">&times;</button>
+					</div>
+				</div>
+				<div id="preview-body" class="preview-body">
+					<!-- Preview content injected here -->
+				</div>
+			</div>
+		</div>
+
+		<!-- MEGA Connect Modal -->
+		<div id="modal-connect-mega" class="modal-backdrop hidden">
+			<div class="modal-card">
+				<div class="modal-header">
+					<div class="modal-title-with-icon">
+						<img src="/src/assets/mega.svg" alt="MEGA" class="modal-provider-icon">
+						<h3 class="modal-title">Connect MEGA Account</h3>
+					</div>
+					<button type="button" class="btn-icon-sm modal-close" aria-label="Close modal">&times;</button>
+				</div>
+				<form id="form-connect-mega" class="modal-body">
+					<p class="modal-sub">Authenticate using your MEGA credentials to link storage space to your unified pool.</p>
+					<div class="form-group">
+						<label class="form-label">MEGA Email</label>
+						<input type="email" id="mega-email" class="form-input" placeholder="user@example.com" required>
+					</div>
+					<div class="form-group">
+						<label class="form-label">MEGA Password</label>
+						<input type="password" id="mega-password" class="form-input" placeholder="••••••••" required>
+					</div>
+					<div id="mega-error" class="error-msg hidden"></div>
+					<div class="modal-actions">
+						<button type="button" class="btn-secondary modal-close">Cancel</button>
+						<button type="submit" id="btn-submit-mega" class="btn-primary">Connect MEGA</button>
+					</div>
+				</form>
+			</div>
+		</div>
+
+		<!-- Toast Container -->
+		<div id="toast-container" class="toast-container"></div>
+	</div>
+
+	<script type="module" src="/src/main.js"></script>
+</body>
+</html>
