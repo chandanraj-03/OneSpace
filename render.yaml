@@ -51,7 +51,6 @@ services:
   - type: web
     name: onespace-web
     runtime: static
-    plan: free
     buildCommand: npm --prefix frontend install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
     routes:
