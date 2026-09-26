@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"onespace/backend/internal/config"
 	"onespace/backend/internal/models"
 	"onespace/backend/internal/utils"
 
@@ -52,13 +53,25 @@ func (a *DropboxAdapter) getValidAccessToken(ctx context.Context) (string, error
 	if creds.AccessToken != "" && creds.ExpiryDate > time.Now().Add(5*time.Minute).UnixMilli() {
 		return creds.AccessToken, nil
 	}
+	if creds.RefreshToken == "" && creds.AccessToken != "" {
+		return creds.AccessToken, nil
+	}
+
+	clientID := creds.ClientID
+	if clientID == "" && config.AppConfig != nil {
+		clientID = config.AppConfig.DropboxClientID
+	}
+	clientSecret := creds.ClientSecret
+	if clientSecret == "" && config.AppConfig != nil {
+		clientSecret = config.AppConfig.DropboxClientSecret
+	}
 
 	// Refresh token
 	data := url.Values{}
 	data.Set("grant_type", "refresh_token")
 	data.Set("refresh_token", creds.RefreshToken)
-	data.Set("client_id", creds.ClientID)
-	data.Set("client_secret", creds.ClientSecret)
+	data.Set("client_id", clientID)
+	data.Set("client_secret", clientSecret)
 
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.dropboxapi.com/oauth2/token", strings.NewReader(data.Encode()))
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"time"
 
+	"onespace/backend/internal/config"
 	"onespace/backend/internal/models"
 	"onespace/backend/internal/utils"
 
@@ -42,10 +43,23 @@ func (a *GooglePhotosAdapter) getValidAccessToken(ctx context.Context) (string, 
 		return "", fmt.Errorf("failed to decrypt Google Photos credentials: %w", err)
 	}
 
+	clientID := creds.ClientID
+	if clientID == "" && config.AppConfig != nil {
+		clientID = config.AppConfig.GoogleClientID
+	}
+	clientSecret := creds.ClientSecret
+	if clientSecret == "" && config.AppConfig != nil {
+		clientSecret = config.AppConfig.GoogleClientSecret
+	}
+	redirectURI := creds.RedirectURI
+	if redirectURI == "" && config.AppConfig != nil {
+		redirectURI = config.AppConfig.GoogleRedirectURI
+	}
+
 	conf := &oauth2.Config{
-		ClientID:     creds.ClientID,
-		ClientSecret: creds.ClientSecret,
-		RedirectURL:  creds.RedirectURI,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURI,
 		Endpoint:     google.Endpoint,
 		Scopes: []string{
 			"openid",
@@ -54,15 +68,29 @@ func (a *GooglePhotosAdapter) getValidAccessToken(ctx context.Context) (string, 
 		},
 	}
 
+	var expiry time.Time
+	if creds.ExpiryDate > 0 {
+		expiry = time.UnixMilli(creds.ExpiryDate)
+	} else if creds.RefreshToken == "" {
+		expiry = time.Now().Add(1 * time.Hour)
+	}
+
+	if creds.AccessToken != "" && (creds.RefreshToken == "" || expiry.After(time.Now().Add(2*time.Minute))) {
+		return creds.AccessToken, nil
+	}
+
 	token := &oauth2.Token{
 		AccessToken:  creds.AccessToken,
 		RefreshToken: creds.RefreshToken,
-		Expiry:       time.UnixMilli(creds.ExpiryDate),
+		Expiry:       expiry,
 	}
 
 	ts := conf.TokenSource(ctx, token)
 	newToken, err := ts.Token()
 	if err != nil {
+		if creds.AccessToken != "" {
+			return creds.AccessToken, nil
+		}
 		return "", err
 	}
 

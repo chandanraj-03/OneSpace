@@ -1701,10 +1701,16 @@ function initEventListeners() {
 		const btn = document.getElementById('btn-sync-all');
 		btn.style.animation = 'spin 0.8s linear infinite';
 		try {
-			await api.runSync();
-			showToast('Sync initiated across all accounts', 'info');
+			const res = await api.runSync();
+			const report = res?.data || res;
+			if (report?.accountErrors && Object.keys(report.accountErrors).length > 0) {
+				const msgs = Object.entries(report.accountErrors).map(([acc, msg]) => `${acc}: ${msg}`).join('; ');
+				showToast(`Sync issue: ${msgs}`, 'warning');
+			} else {
+				showToast(`Sync complete! ${report?.changesDetected || 0} items indexed.`, 'success');
+			}
 			await refreshAccounts();
-			renderCurrentView();
+			await renderCurrentView();
 		} catch (err) {
 			showToast(err.message || 'Sync failed', 'error');
 		} finally {

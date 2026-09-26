@@ -83,6 +83,12 @@ func main() {
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": report})
 		})
+		api.With(middleware.RequireAppUser).Get("/sync/status", func(w http.ResponseWriter, r *http.Request) {
+			user := middleware.GetUserFromContext(r.Context())
+			report := services.Sync.GetLastReport(user.ID)
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]interface{}{"data": report})
+		})
 
 		// Auth
 		api.Get("/auth/me", authH.Me)

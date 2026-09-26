@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"sync"
 	"time"
@@ -11,12 +12,22 @@ import (
 	"onespace/backend/internal/database"
 )
 
+type AccountSyncInfo struct {
+	Email    string `json:"email"`
+	Provider string `json:"provider"`
+	Files    int    `json:"files"`
+	Error    string `json:"error,omitempty"`
+}
+
 type SyncReport struct {
-	LastRunAt       *string `json:"lastRunAt"`
-	UserID          *string `json:"userId"`
-	ScannedAccounts int     `json:"scannedAccounts"`
-	ChangesDetected int     `json:"changesDetected"`
-	IsRunning       bool    `json:"isRunning"`
+	LastRunAt       *string           `json:"lastRunAt"`
+	UserID          *string           `json:"userId"`
+	ScannedAccounts int               `json:"scannedAccounts"`
+	ChangesDetected int               `json:"changesDetected"`
+	IsRunning       bool              `json:"isRunning"`
+	Error           string            `json:"error,omitempty"`
+	AccountErrors   map[string]string `json:"accountErrors,omitempty"`
+	AccountDetails  []AccountSyncInfo `json:"accountDetails,omitempty"`
 }
 
 type SyncService struct {
@@ -65,19 +76,37 @@ func (s *SyncService) RunDeltaSync(ctx context.Context, userID string) (*SyncRep
 
 	accounts := s.db.ListActiveCloudAccounts(userID)
 	changes := 0
+	accountErrors := make(map[string]string)
+	var accountDetails []AccountSyncInfo
 
 	log.Printf("[Sync] Starting delta sync for user %s across %d accounts...\n", userID, len(accounts))
 
 	for _, acc := range accounts {
 		adapter, err := adapters.CreateAdapter(&acc, s.cfg.EncryptionKey)
 		if err != nil {
+			errStr := fmt.Sprintf("adapter init error: %v", err)
 			log.Printf("[Sync] Error creating adapter for %s (%s): %v\n", acc.Email, acc.Provider, err)
+			accountErrors[acc.Email] = errStr
+			accountDetails = append(accountDetails, AccountSyncInfo{
+				Email:    acc.Email,
+				Provider: acc.Provider,
+				Files:    0,
+				Error:    errStr,
+			})
 			continue
 		}
 
 		files, err := adapter.FetchStructure(ctx)
 		if err != nil {
+			errStr := fmt.Sprintf("fetch error: %v", err)
 			log.Printf("[Sync] Error fetching structure for %s (%s): %v\n", acc.Email, acc.Provider, err)
+			accountErrors[acc.Email] = errStr
+			accountDetails = append(accountDetails, AccountSyncInfo{
+				Email:    acc.Email,
+				Provider: acc.Provider,
+				Files:    0,
+				Error:    errStr,
+			})
 			continue
 		}
 
@@ -86,6 +115,11 @@ func (s *SyncService) RunDeltaSync(ctx context.Context, userID string) (*SyncRep
 			s.db.UpsertFile(&files[i])
 		}
 		changes += len(files)
+		accountDetails = append(accountDetails, AccountSyncInfo{
+			Email:    acc.Email,
+			Provider: acc.Provider,
+			Files:    len(files),
+		})
 		log.Printf("[Sync] Indexed %d items from %s (%s)\n", len(files), acc.Email, acc.Provider)
 
 		total, used, err := adapter.GetStorageSummary(ctx)
@@ -106,6 +140,8 @@ func (s *SyncService) RunDeltaSync(ctx context.Context, userID string) (*SyncRep
 		ScannedAccounts: len(accounts),
 		ChangesDetected: changes,
 		IsRunning:       false,
+		AccountErrors:   accountErrors,
+		AccountDetails:  accountDetails,
 	}
 	s.lastReport[userID] = rep
 	s.mu.Unlock()

@@ -4,7 +4,6 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"os"
-	"runtime"
 	"strconv"
 	"strings"
 
@@ -68,10 +67,8 @@ func LoadConfig() *Config {
 	}
 
 	envHalf := getEnv("ONESPACE_SECRET_HALF", "onespace-dev-secret-half")
-	hostname, _ := os.Hostname()
-	machineFingerprint := fmt.Sprintf("%s|%s|%s", hostname, runtime.GOOS, runtime.GOARCH)
-	fingerprintHash := sha256.Sum256([]byte(machineFingerprint))
-	derivedMaterial := fmt.Sprintf("%s:%x", envHalf, fingerprintHash)
+	// Deterministic, persistent key derived from static environment secrets
+	derivedMaterial := fmt.Sprintf("%s:%s", envHalf, authSecret)
 	encKey := sha256.Sum256([]byte(derivedMaterial))
 
 	AppConfig = &Config{

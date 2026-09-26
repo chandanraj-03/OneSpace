@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"onespace/backend/internal/config"
 	"onespace/backend/internal/models"
 	"onespace/backend/internal/utils"
 
@@ -49,10 +50,23 @@ func (a *GoogleDriveAdapter) getDriveService(ctx context.Context) (*drive.Servic
 		return nil, fmt.Errorf("failed to decrypt Google credentials: %w", err)
 	}
 
+	clientID := creds.ClientID
+	if clientID == "" && config.AppConfig != nil {
+		clientID = config.AppConfig.GoogleClientID
+	}
+	clientSecret := creds.ClientSecret
+	if clientSecret == "" && config.AppConfig != nil {
+		clientSecret = config.AppConfig.GoogleClientSecret
+	}
+	redirectURI := creds.RedirectURI
+	if redirectURI == "" && config.AppConfig != nil {
+		redirectURI = config.AppConfig.GoogleRedirectURI
+	}
+
 	conf := &oauth2.Config{
-		ClientID:     creds.ClientID,
-		ClientSecret: creds.ClientSecret,
-		RedirectURL:  creds.RedirectURI,
+		ClientID:     clientID,
+		ClientSecret: clientSecret,
+		RedirectURL:  redirectURI,
 		Endpoint:     google.Endpoint,
 		Scopes: []string{
 			"openid",
@@ -61,10 +75,17 @@ func (a *GoogleDriveAdapter) getDriveService(ctx context.Context) (*drive.Servic
 		},
 	}
 
+	var expiry time.Time
+	if creds.ExpiryDate > 0 {
+		expiry = time.UnixMilli(creds.ExpiryDate)
+	} else if creds.RefreshToken == "" {
+		expiry = time.Now().Add(1 * time.Hour)
+	}
+
 	token := &oauth2.Token{
 		AccessToken:  creds.AccessToken,
 		RefreshToken: creds.RefreshToken,
-		Expiry:       time.UnixMilli(creds.ExpiryDate),
+		Expiry:       expiry,
 	}
 
 	ts := conf.TokenSource(ctx, token)

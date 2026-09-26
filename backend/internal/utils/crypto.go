@@ -98,56 +98,74 @@ func EncryptJSON(data interface{}, key []byte) (string, error) {
 		return "", err
 	}
 
-	// In Node.js: cipher.update(plaintext), cipher.final(), cipher.getAuthTag()
-	// In Go GCM: gcm.Seal appends tag (16 bytes) to ciphertext
+	// gcm.Seal appends tag (16 bytes) to ciphertext
 	sealed := gcm.Seal(nil, nonce, plaintext, nil)
 	tagSize := gcm.Overhead()
 	ciphertext := sealed[:len(sealed)-tagSize]
 	tag := sealed[len(sealed)-tagSize:]
 
-	return fmt.Sprintf("%s:%s:%s",
-		hex.EncodeToString(nonce),
-		hex.EncodeToString(ciphertext),
-		hex.EncodeToString(tag),
-	), nil
+	// Match Node.js format: Buffer.concat([iv, authTag, ciphertext]).toString('base64')
+	combined := append(nonce, tag...)
+	combined = append(combined, ciphertext...)
+	return base64.StdEncoding.EncodeToString(combined), nil
+}
+
+func tryOpenGCM(key, nonce, ciphertext, tag []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, err
+	}
+	sealed := append(ciphertext, tag...)
+	return gcm.Open(nil, nonce, sealed, nil)
 }
 
 func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
-	parts := strings.Split(encryptedStr, ":")
-	if len(parts) != 3 {
-		return errors.New("invalid encrypted data format")
+	// Attempt 1: 3-part hex format (nonce:ciphertext:tag)
+	if strings.Contains(encryptedStr, ":") {
+		parts := strings.Split(encryptedStr, ":")
+		if len(parts) == 3 {
+			nonce, err1 := hex.DecodeString(parts[0])
+			ciphertext, err2 := hex.DecodeString(parts[1])
+			tag, err3 := hex.DecodeString(parts[2])
+			if err1 == nil && err2 == nil && err3 == nil {
+				if pt, err := tryOpenGCM(key, nonce, ciphertext, tag); err == nil {
+					return json.Unmarshal(pt, target)
+				}
+			}
+		}
 	}
 
-	nonce, err := hex.DecodeString(parts[0])
+	// Attempt 2: Base64 format (Node.js standard: iv[12] + authTag[16] + ciphertext[N])
+	raw, err := base64.StdEncoding.DecodeString(encryptedStr)
 	if err != nil {
-		return err
-	}
-	ciphertext, err := hex.DecodeString(parts[1])
-	if err != nil {
-		return err
-	}
-	tag, err := hex.DecodeString(parts[2])
-	if err != nil {
-		return err
+		raw, err = base64.RawURLEncoding.DecodeString(encryptedStr)
 	}
 
-	block, err := aes.NewCipher(key)
-	if err != nil {
-		return err
+	if err == nil && len(raw) >= 28 {
+		nonce := raw[:12]
+		tag := raw[12:28]
+		ciphertext := raw[28:]
+
+		if pt, err := tryOpenGCM(key, nonce, ciphertext, tag); err == nil {
+			return json.Unmarshal(pt, target)
+		}
+
+		// Also try standard GCM seal order: iv[12] + (ciphertext + tag)
+		block, bErr := aes.NewCipher(key)
+		if bErr == nil {
+			if gcm, gErr := cipher.NewGCM(block); gErr == nil {
+				if pt, err := gcm.Open(nil, raw[:12], raw[12:], nil); err == nil {
+					return json.Unmarshal(pt, target)
+				}
+			}
+		}
 	}
 
-	gcm, err := cipher.NewGCM(block)
-	if err != nil {
-		return err
-	}
-
-	sealed := append(ciphertext, tag...)
-	plaintext, err := gcm.Open(nil, nonce, sealed, nil)
-	if err != nil {
-		return err
-	}
-
-	return json.Unmarshal(plaintext, target)
+	return errors.New("unable to decrypt credentials: authentication failed")
 }
 
 func HashPassword(password string) (string, error) {
