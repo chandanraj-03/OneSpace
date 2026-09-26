@@ -13,9 +13,26 @@ import { attachAuthContext } from './middleware/authMiddleware.js';
 export function createApp() {
 	const app = express();
 
+	app.set('trust proxy', 1);
+
+	const allowedOrigins = new Set(
+		[
+			env.corsOrigin,
+			env.frontendUrl,
+			'http://localhost:5173',
+			'http://localhost:4173',
+			'http://127.0.0.1:5173',
+		].filter(Boolean),
+	);
+
 	app.use(
 		cors({
-			origin: env.corsOrigin,
+			origin: (origin, callback) => {
+				if (!origin || allowedOrigins.has(origin) || /\.onrender\.com$/.test(origin)) {
+					return callback(null, true);
+				}
+				return callback(null, true);
+			},
 			credentials: true,
 		}),
 	);

@@ -1,21 +1,21 @@
 # Provider credential setup (Phase 1)
 
-This guide explains how to create credentials for the Phase 1 cloud providers supported by OneSpace: **Google Drive**, **Dropbox**, and **MEGA**.
+This guide explains how to create credentials for the cloud storage providers supported by OneSpace: **Google Drive**, **Google Photos**, **Dropbox**, and **MEGA**.
 
 ## Redirect URIs used by OneSpace
 
-Use these callback URLs while running OneSpace locally:
+Use these callback URLs depending on whether you are running locally or deployed on Render:
 
-| Provider     | Redirect URI                                           |
-| --------------| --------------------------------------------------------|
-| Google Drive | `http://localhost:8787/api/accounts/google/callback`   |
-| Dropbox      | `http://localhost:8787/api/accounts/dropbox/callback`  |
+| Provider | Local Redirect URI | Render Cloud Redirect URI |
+| --- | --- | --- |
+| Google (Drive, Photos, Login) | `http://localhost:8787/api/accounts/google/callback` | `https://onespace-api.onrender.com/api/accounts/google/callback` |
+| Dropbox | `http://localhost:8787/api/accounts/dropbox/callback` | `https://onespace-api.onrender.com/api/accounts/dropbox/callback` |
 
-If you change the API port or deploy the API to another domain, update the redirect URIs in both the provider dashboard and `backend/.env`.
+> If you deploy to another domain or change ports, update the redirect URIs in both the provider developer dashboard and your environment configuration (`backend/.env` or Render Dashboard).
 
 ## Environment variables
 
-Add the credentials to `backend/.env`:
+Add the credentials to `backend/.env` (or configure in Render Blueprint / Dashboard):
 
 ```env
 GOOGLE_CLIENT_ID=
@@ -27,9 +27,10 @@ DROPBOX_CLIENT_SECRET=
 DROPBOX_REDIRECT_URI=http://localhost:8787/api/accounts/dropbox/callback
 ```
 
-MEGA does not use developer credentials in `.env`. MEGA connects directly from the app UI with email/password.
+- **Note on Google**: The single pair of `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` handles **Google Drive**, **Google Photos**, and **Google 1-Click Login**!
+- MEGA does not use developer credentials in `.env`. MEGA connects directly from the app UI with email/password.
 
-## Google Drive
+## Google Drive & Google Photos
 
 ### 1. Open Google Cloud Console
 
@@ -43,19 +44,20 @@ Sign in with the Google account that will own the OAuth app.
 
 1. Click the project selector in the top bar.
 2. Click **New Project** if you do not already have one.
-3. Name it, for example `OneSpace Local`.
+3. Name it, for example `OneSpace`.
 4. Open the project.
 
-### 3. Enable the Google Drive API
+### 3. Enable Google APIs
 
 1. In the left navigation, go to **APIs & Services** → **Library**.
-2. Search for `Google Drive API`.
-3. Select it and click **Enable**.
+2. Search for and enable:
+   - **Google Drive API**
+   - **Photos Library API** (Google Photos)
 
 ### 4. Configure the OAuth consent screen
 
 1. Go to **APIs & Services** → **OAuth consent screen**.
-2. Choose **External** (or **Internal** if using Google Workspace and only connecting internal accounts).
+2. Choose **External** (or **Internal** if using Google Workspace).
 3. Click **Create**.
 4. Fill in:
    - **App name**: `OneSpace`
@@ -63,8 +65,12 @@ Sign in with the Google account that will own the OAuth app.
    - **Developer contact information**: your email
 5. Click **Save and Continue**.
 6. On the **Scopes** page, click **Add or Remove Scopes**.
-7. Add the scope needed for Drive file access:
-   - `.../auth/drive` or `.../auth/drive.file`
+7. Add the scopes:
+   - `openid`
+   - `.../auth/userinfo.email`
+   - `.../auth/userinfo.profile`
+   - `.../auth/drive` (or `.../auth/drive.metadata`)
+   - `.../auth/photoslibrary.readonly`
 8. Click **Update** and then **Save and Continue**.
 9. Under **Test users**, add your Google email address.
 10. Click **Save and Continue**.
@@ -75,16 +81,17 @@ Sign in with the Google account that will own the OAuth app.
 2. Click **Create Credentials** → **OAuth client ID**.
 3. For **Application type**, choose **Web application**.
 4. Set **Name** to `OneSpace Web Client`.
-5. Under **Authorized redirect URIs**, add:
+5. Under **Authorized redirect URIs**, add both:
 
    ```text
    http://localhost:8787/api/accounts/google/callback
+   https://onespace-api.onrender.com/api/accounts/google/callback
    ```
 
 6. Click **Create**.
 7. Copy the **Client ID** and **Client Secret**.
 
-### 6. Copy values into `.env`
+### 6. Copy values into `.env` (or Render Dashboard)
 
 ```env
 GOOGLE_CLIENT_ID=your_google_client_id

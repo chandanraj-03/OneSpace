@@ -17,15 +17,9 @@ services:
       - key: PORT
         value: 10000
       - key: CORS_ORIGIN
-        fromService:
-          type: web
-          name: onespace-web
-          property: url
+        value: https://onespace-web.onrender.com
       - key: FRONTEND_URL
-        fromService:
-          type: web
-          name: onespace-web
-          property: url
+        value: https://onespace-web.onrender.com
       - key: MONGODB_URI
         sync: false
       - key: ONESPACE_SECRET_HALF
@@ -58,7 +52,6 @@ services:
     name: onespace-web
     runtime: static
     plan: free
-    region: oregon
     buildCommand: npm --prefix frontend install && npm --prefix frontend run build
     staticPublishPath: frontend/dist
     routes:
@@ -70,3 +63,4 @@ services:
         value: https://onespace-api.onrender.com/api
       - key: VITE_WS_BASE_URL
         value: wss://onespace-api.onrender.com/ws/uploads
+

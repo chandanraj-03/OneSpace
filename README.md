@@ -4,103 +4,94 @@
 
 # OneSpace
 
-[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript) [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/) [![Vue.js](https://img.shields.io/badge/Vue.js-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/) [![Node.js](https://img.shields.io/badge/Node.js-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/) [![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/) [![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/) [![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
+[![JavaScript](https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black)](https://developer.mozilla.org/en-US/docs/Web/JavaScript) [![Vite](https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/) [![Vue.js](https://img.shields.io/badge/Vue.js-4FC08D?style=for-the-badge&logo=vuedotjs&logoColor=white)](https://vuejs.org/) [![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)](https://tailwindcss.com/) [![Node.js](https://img.shields.io/badge/Node.js-5FA04E?style=for-the-badge&logo=nodedotjs&logoColor=white)](https://nodejs.org/) [![Express.js](https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white)](https://expressjs.com/) [![MongoDB Atlas](https://img.shields.io/badge/MongoDB_Atlas-47A248?style=for-the-badge&logo=mongodb&logoColor=white)](https://www.mongodb.com/atlas) [![Render](https://img.shields.io/badge/Render-000000?style=for-the-badge&logo=render&logoColor=white)](https://render.com/) [![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logo=socketdotio&logoColor=white)](https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API)
 
-OneSpace is a full-stack cloud drive aggregation platform that presents multiple storage providers through a single, consistent workspace. The application combines a Vue-based client with an Express API and provider adapter layer, enabling users to browse, upload, download, and manage files across connected cloud accounts from one interface.
+**OneSpace** is a modern, high-performance multi-cloud drive aggregation platform that unifies multiple cloud storage accounts into a single, seamless, and intuitive workspace. Built with Vue 3, Express, and provider-agnostic adapters, OneSpace enables users to browse, upload, download, search, and manage files across all their connected accounts from one unified interface.
 
 ![OneSpace Overview](frontend/src/assets/overview.webp)
 
-## ✨ Key features
+---
 
-### ☁️ Multi-provider cloud aggregation
-- Connect multiple cloud storage accounts in one application
-- All providers are normalized through a consistent adapter layer
-- Active provider support includes OAuth, account-based login, and access-key-based connections
+## ✨ Key Features
 
-### 🗂️ Unified file workspace
-- `Home`, `My Drive`, `Recent`, `Starred`, `Shared with Me`, and `Quota` views
-- Virtual-path-based file navigation across providers
-- File metadata is presented consistently across different provider sources
+### ☁️ Multi-Provider Cloud Aggregation
+- Connect multiple cloud storage accounts across different providers in a single application.
+- Normalizes disparate APIs (Google Drive, Google Photos, Dropbox, MEGA) through a unified adapter layer.
+- Supports OAuth 2.0 redirect flows, direct account authentication, and secure token refresh cycles.
 
-### 📁 File management
-- Browse files and folders from connected accounts
-- Create folders
-- Rename files and folders
-- Delete files and folders, including bulk delete
-- Download provider files
-- View file details and previews for supported file types
-- Star / unstar files on providers that support it
+### 🗂️ Unified File Workspace
+- **Virtual Path Navigation**: Navigate files and folders seamlessly as if they were on a single local filesystem.
+- **Dedicated Views**: `Home` dashboard, `My Drive` explorer, `Recent` files, `Starred` items, `Shared with Me`, and `Storage Quota`.
+- Consistent metadata, thumbnails, and preview handling regardless of provider source.
 
-### ⬆️ Upload system
-- Browser-based file uploads
-- Folder upload support
-- Drag-and-drop uploads
-- Upload session initiation through the API
-- Real-time upload progress over WebSocket
-- Automatic upload account allocation based on storage selection strategy
+### 📁 Comprehensive File Management
+- Explore folders and preview images, documents, and media.
+- Create new folders, rename files/folders, download files, and perform bulk deletion.
+- Star/unstar items for quick access across supported providers.
 
-### 🔄 Sync and metadata mirror
-- File metadata is stored in SQLite for fast navigation
-- Account synchronization runs on a schedule using `node-cron`
-- The API exposes a manual sync trigger
-- Delta sync reports are available through the health/sync layer
+### ⬆️ High-Speed Upload Engine
+- Multi-file, drag-and-drop, and full folder upload capabilities.
+- Real-time chunked streaming and live upload progress via WebSockets.
+- **Intelligent Account Allocation**: Automatically selects the destination cloud account according to your configured storage strategy.
 
-### 👤 Auth and app modes
-- `local` mode for personal or simple self-hosted usage
-- `hosted` mode for multi-user deployments with session-cookie-based register/login/logout
-- Account data, file mirrors, allocation config, and settings are scoped per user
+### 🔄 Dual Persistence & High-Speed Mirroring
+- **Cloud-Ready**: Powered by **MongoDB Atlas** for scalable, serverless cloud persistence across deployments.
+- **In-Memory Cache**: Low-latency RAM-backed query engine for instant folder navigation and fast searching.
+- **Zero-Config Local Mode**: Automatically falls back to an embedded in-memory database when running offline without MongoDB.
+- Scheduled background sync via `node-cron` with manual on-demand sync triggers.
 
-### ⚙️ User settings and storage allocation
-- User settings such as language and theme
-- Storage allocation strategies:
-  - `round_robin`
-  - `weighted_round_robin`
-  - `least_used`
-  - `most_free`
-  - `manual`
-- Account priority order can be configured for the manual strategy
+### 👤 Secure Authentication Modes
+- **`hosted` Mode**: Multi-user cloud deployment featuring **Google 1-Click OAuth Sign-In** with secure `HttpOnly`, `SameSite=None`, `Secure` session cookies. Eliminates spam registrations and bot accounts.
+- **`local` Mode**: Zero-login personal deployment for local machine or home server use.
 
-## Preview
+### 🧠 Smart Storage Allocation Strategies
+Distribute uploads dynamically across connected cloud accounts:
+- `round_robin`: Cycles evenly across accounts.
+- `weighted_round_robin`: Proportional distribution based on account capacity.
+- `least_used`: Prioritizes accounts with lowest current usage.
+- `most_free`: Automatically directs uploads to the account with the most available bytes.
+- `manual`: Enforces your custom priority ordering.
 
-![OneSpace My Drive Page](frontend/src/assets/screenshot-1.webp)
-![OneSpace Storage Overview](frontend/src/assets/screenshot-2.webp)
-![OneSpace Storage Allocation](frontend/src/assets/screenshot-3.webp)
+---
 
-## ☁️ Supported providers (Phase 1)
+## 📸 Screenshots
 
-| Provider | Status | Integration model |
-| --- | --- | --- |
-| Google Drive | Active | OAuth + Google Drive API |
-| Dropbox | Active | OAuth + Dropbox API |
-| MEGA | Active | Email/password account connection |
+| My Drive Explorer | Storage Overview |
+| :---: | :---: |
+| ![OneSpace My Drive](frontend/src/assets/screenshot-1.webp) | ![OneSpace Storage Overview](frontend/src/assets/screenshot-2.webp) |
 
-> Detailed provider credential setup is available in [`docs/provider-setup.md`](docs/provider-setup.md).
+| Storage Allocation Settings |
+| :---: |
+| ![OneSpace Storage Allocation](frontend/src/assets/screenshot-3.webp) |
 
-## 🏗️ Project structure
+---
 
-```text
-OneSpace/
-├─ frontend/         # Vue 3 app (Vite, Pinia, Vue Router, i18n)
-├─ backend/          # Express API, adapters, sync engine, SQLite
-├─ docs/             # Provider setup documentation
-├─ package.json      # Root workspace scripts
-├─ LICENSE
-└─ README.md
-```
+## ☁️ Supported Cloud Providers
 
-## 🔄 How OneSpace works
+| Provider | Status | Integration Model | Scopes / Capabilities |
+| :--- | :---: | :--- | :--- |
+| **Google Drive** | ✅ Active | OAuth 2.0 (Google Drive API v3) | Full drive file read, write, upload, rename, delete |
+| **Google Photos** | ✅ Active | OAuth 2.0 (Photos Library API) | Media item sync, album browsing, metadata indexing |
+| **Dropbox** | ✅ Active | OAuth 2.0 (Dropbox API v2) | File management, chunked upload, thumbnail generation |
+| **MEGA** | ✅ Active | Direct account connection | Client-side encrypted cloud storage |
+
+> 📖 **Setup Guide**: Detailed steps to get API credentials for all providers are documented in [`provider-setup.md`](provider-setup.md).
+
+---
+
+## 🏗️ Architecture & Data Flow
+
 ```mermaid
 flowchart TD
-    U[User] --> F[Frontend<br/>Vue 3 + Vite]
+    U[User] --> F[Frontend<br/>Vue 3 + Vite + Tailwind CSS]
     F -->|REST API requests| B[Backend API<br/>Express.js]
 
-    subgraph Frontend Features
-        F1[Auth]
-        F2[Accounts]
-        F3[File Explorer]
-        F4[Uploads]
-        F5[Settings]
-        F6[Allocation]
+    subgraph Frontend Workspace
+        F1[Google 1-Click Auth]
+        F2[Account Manager]
+        F3[Virtual File Explorer]
+        F4[Upload Hub + Drag-Drop]
+        F5[Storage Quota & Strategy]
     end
 
     F --> F1
@@ -108,299 +99,227 @@ flowchart TD
     F --> F3
     F --> F4
     F --> F5
-    F --> F6
 
-    B --> A[Adapter Registry]
-    A --> G[Google Drive Adapter]
-    A --> D[Dropbox Adapter]
-    A --> M[MEGA Adapter]
+    subgraph Backend Engine
+        B --> A[Adapter Registry]
+        A --> G[Google Drive Adapter]
+        A --> GP[Google Photos Adapter]
+        A --> D[Dropbox Adapter]
+        A --> M[MEGA Adapter]
 
-    G --> CP[Cloud Providers]
-    D --> CP
-    M --> CP
+        B --> AL[Allocation Engine<br/>round_robin / least_used / most_free / manual]
+        B --> SY[Sync Engine<br/>node-cron + manual delta sync]
+        B --> WS[WebSocket Server<br/>Real-time upload progress]
+    end
 
-    B --> N[Normalized OneSpace Data Model]
-    CP --> N
+    subgraph External Cloud Providers
+        G --> C1[Google Drive API]
+        GP --> C2[Google Photos API]
+        D --> C3[Dropbox API]
+        M --> C4[MEGA API]
+    end
 
-    N --> DB[SQLite Metadata Mirror]
-    B --> DB
+    subgraph Persistence Layer
+        B --> MEM[High-Speed In-Memory Cache]
+        MEM <-->|Async Sync / Hydration| MONGO[(MongoDB Atlas<br/>Production Database)]
+    end
 
-    B -->|Upload progress| WS[WebSocket Hub]
-    WS --> F
-
-    B --> SY[Sync Service]
-    SY --> CRON[node-cron Scheduler]
-    SY --> CP
-    SY --> DB
-
-    B --> AL[Allocation Service]
-    AL --> ACC[Target Account Selection<br/>round_robin / weighted / least_used / most_free / manual]
-    ACC --> CP
-
-    B --> AU[Auth & Session Layer]
-    AU --> DB
+    WS -->|Progress Stream| F
 ```
-At a high level:
 
-1. The frontend calls the REST API for auth, accounts, files, uploads, settings, and allocation
-2. The backend selects the appropriate provider adapter (`google_drive`, `dropbox`, `mega`)
-3. Provider responses are normalized into the OneSpace data model
-4. File metadata is mirrored into SQLite for fast access
-5. Upload progress is pushed to the client over WebSocket
-6. The sync service keeps local metadata aligned with provider state
+---
 
-## 🧩 Current application views
+## 🚀 Free Cloud Deployment (Render Blueprint)
 
-The frontend currently includes these main views:
+You can deploy the complete OneSpace stack (Backend API + Frontend Web) to [Render](https://render.com/) on their **Free Tier** in minutes using the included `render.yaml` Blueprint.
 
-- `/` → Home dashboard
-- `/my-drive` → main file explorer
-- `/shared-with-me` → shared files from supported providers
-- `/recent` → recent files
-- `/starred` → starred files
-- `/quota` → quota overview, account management, allocation settings
-- `/login` and `/register` → used in hosted mode
+### Prerequisites
+1. A free [Render account](https://render.com/).
+2. A free [MongoDB Atlas](https://www.mongodb.com/atlas) cluster (M0 Free Tier).
+3. A Google Cloud project with OAuth 2.0 credentials (see [`provider-setup.md`](provider-setup.md)).
 
-## 📋 Requirements
+### Step-by-Step Deployment:
 
-Before running the project, make sure you have:
+1. **Fork or Push** this repository to your GitHub account:
+   ```bash
+   git remote add origin https://github.com/YOUR_USERNAME/OneSpace.git
+   git push -u origin main
+   ```
 
-- Node.js 20+
-- npm
-- Provider credentials for the cloud services you want to use
+2. **Create a Free MongoDB Atlas Database**:
+   - Go to [MongoDB Atlas](https://www.mongodb.com/atlas) and create a free M0 cluster.
+   - Under **Database Access**, create a database user and password.
+   - Under **Network Access**, add IP `0.0.0.0/0` (Allow access from anywhere).
+   - Click **Connect** → **Drivers** (Node.js) and copy the connection string:
+     ```text
+     mongodb+srv://<username>:<password>@cluster0.xxxx.mongodb.net/?retryWrites=true&w=majority
+     ```
 
-Using a current compatible Node.js LTS release is recommended.
+3. **Deploy with Render Blueprint**:
+   - In your Render Dashboard, click **New +** → **Blueprint**.
+   - Connect your GitHub repository (`OneSpace`).
+   - Render will read [`render.yaml`](render.yaml) and automatically configure:
+     - `onespace-api`: Node.js Web Service (Oregon, Free Plan)
+     - `onespace-web`: Static Site (Global CDN, Free Plan)
+   - When prompted for environment variables, fill in:
+     - `MONGODB_URI`: Your MongoDB Atlas connection string.
+     - `GOOGLE_CLIENT_ID`: Your Google OAuth Client ID.
+     - `GOOGLE_CLIENT_SECRET`: Your Google OAuth Client Secret.
+     - *(Optional)* `DROPBOX_CLIENT_ID` & `DROPBOX_CLIENT_SECRET`.
+   - Click **Apply**.
 
-## 🛠️ Local setup
+4. **Update Google Cloud Console Redirect URI**:
+   - Go to [Google Cloud Console](https://console.cloud.google.com/) → **APIs & Services** → **Credentials**.
+   - Edit your OAuth 2.0 Web Client.
+   - Add the following to **Authorized redirect URIs**:
+     ```text
+     https://onespace-api.onrender.com/api/accounts/google/callback
+     ```
+   - Click **Save**.
 
-### 1. Install dependencies
+5. **Done!** Open `https://onespace-web.onrender.com`, log in with Google, and start connecting your storage accounts!
 
-From the project root:
+---
 
+## 🛠️ Local Development Setup
+
+### 1. Prerequisites
+- **Node.js**: v20 or higher
+- **npm**: v9 or higher
+
+### 2. Install Dependencies
+Clone the repository and install all dependencies:
 ```bash
+git clone https://github.com/chandanraj-03/OneSpace.git
+cd OneSpace
 npm install
 ```
 
-### 2. Create the backend environment file
-
-Copy the env template:
-
+### 3. Environment Configuration
+Create the backend `.env` file from the example:
 ```bash
+# Windows PowerShell
 copy backend/.env.example backend/.env
+
+# Linux / macOS
+cp backend/.env.example backend/.env
 ```
 
-Or create it manually based on `backend/.env.example`.
-
-### 3. Fill in the environment variables
-
-Example environment values for the current project:
-
+Edit `backend/.env` with your settings:
 ```env
 PORT=8787
-
-# local = single-user, hosted = multi-user with login/register
 APP_MODE=local
 
 CORS_ORIGIN=http://localhost:5173
 FRONTEND_URL=http://localhost:5173
 
 SYNC_INTERVAL_MINUTES=5
-OneSpace_SECRET_HALF=replace-this-with-random-half-key
+ONESPACE_SECRET_HALF=change-this-to-a-random-secret
 
-AUTH_COOKIE_NAME=OneSpace_session
-AUTH_SESSION_TTL_HOURS=336
-AUTH_SECRET=replace-this-with-a-strong-random-secret
+# Optional: Add MongoDB Atlas URI if you want cloud persistence locally
+MONGODB_URI=
 
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 GOOGLE_REDIRECT_URI=http://localhost:8787/api/accounts/google/callback
 
-DROPBOX_CLIENT_ID=
-DROPBOX_CLIENT_SECRET=
+DROPBOX_CLIENT_ID=your_dropbox_key
+DROPBOX_CLIENT_SECRET=your_dropbox_secret
 DROPBOX_REDIRECT_URI=http://localhost:8787/api/accounts/dropbox/callback
 ```
 
-Notes:
-- MEGA does not use `.env` credentials; it connects from the UI using email/password
-- `APP_MODE=hosted` enables the register/login/logout flow using session cookies
-
-### 4. Configure provider credentials
-
-Follow the detailed guide in:
-
-- [`docs/provider-setup.md`](docs/provider-setup.md)
-
-## 💻 Development
-
-Run the frontend and backend together from the root:
-
+### 4. Start Development Servers
+Run frontend and backend concurrently with hot reloading:
 ```bash
 npm run dev
 ```
 
-Default local endpoints:
+- **Frontend Web UI**: [http://localhost:5173](http://localhost:5173)
+- **Backend API**: [http://localhost:8787](http://localhost:8787)
 
-- Frontend: `http://localhost:5173`
-- API: `http://localhost:8787`
+---
 
-## 🐳 Docker setup
+## 🐳 Docker Deployment
 
-The project includes Docker integration for running the API and production frontend behind Nginx.
-
-### 1. Create the backend environment file
+Run the complete stack using Docker Compose:
 
 ```bash
-copy backend/.env.example backend/.env
-```
-
-Then fill in the provider credentials and secrets in `backend/.env`.
-
-For the default Docker Compose setup, the app is exposed at `http://localhost:8080`, so OAuth redirect URLs should use the proxied API URLs:
-
-```env
-GOOGLE_REDIRECT_URI=http://localhost:8080/api/accounts/google/callback
-DROPBOX_REDIRECT_URI=http://localhost:8080/api/accounts/dropbox/callback
-```
-
-These values are also set in `docker-compose.yml` so they override the local-development defaults from `backend/.env` when running with Compose.
-
-### 2. Build and start the containers
-
-```bash
+# Build and start services
 docker compose up --build
-```
 
-Open the app at:
-
-- Frontend: `http://localhost:8080`
-- API through Nginx proxy: `http://localhost:8080/api`
-
-### 3. Stop the containers
-
-```bash
+# Stop services
 docker compose down
 ```
 
-SQLite data is persisted in the Docker volume `OneSpace_api_data`. To remove containers and the persisted Docker database volume:
+The application will be available at:
+- **Web App**: `http://localhost:8080`
+- **API**: `http://localhost:8080/api`
 
-```bash
-docker compose down -v
-```
+---
 
-## 📌 Available scripts
+## 📌 Available Scripts
 
-### Root scripts
-
-| Script | Description |
+| Command | Description |
 | --- | --- |
-| `npm run dev` | Run frontend and backend in parallel |
-| `npm run build` | Build the production frontend |
+| `npm run dev` | Run both Vite dev server and Express backend concurrently |
+| `npm run build` | Build the frontend production bundle (`frontend/dist`) |
 | `npm run build:web` | Build only the frontend |
-| `npm run dev:web` | Run the Vite dev server |
-| `npm run dev:api` | Run the backend with `node --watch` |
-| `npm start` | Start the backend without watch mode |
+| `npm run dev:web` | Start only the Vite frontend dev server |
+| `npm run dev:api` | Start only the Express API with `node --watch` |
+| `npm start` | Start the Express backend production server |
 
-### Frontend scripts
+---
 
-| Script | Description |
-| --- | --- |
-| `npm --prefix frontend run dev` | Start the Vite dev server |
-| `npm --prefix frontend run build` | Build the frontend |
-| `npm --prefix frontend run preview` | Preview the built frontend |
+## 🔌 API Reference Overview
 
-### Backend scripts
+### 🔐 Authentication
+- `GET /api/auth/me`: Retrieve current session and user profile.
+- `GET /api/auth/google/url`: Generate Google OAuth 2.0 authorization URL for 1-click sign-in.
+- `GET /api/auth/google/callback`: Handle Google OAuth callback and session creation.
+- `POST /api/auth/logout`: Invalidate current session and clear auth cookies.
 
-| Script | Description |
-| --- | --- |
-| `npm --prefix backend run dev` | Run the API with file watch |
-| `npm --prefix backend start` | Run the API normally |
+### ☁️ Cloud Accounts
+- `GET /api/accounts`: List all connected cloud accounts and their storage quotas.
+- `DELETE /api/accounts/:id`: Disconnect and remove a cloud account.
+- `GET /api/accounts/:provider/connect`: Initiate OAuth connection flow for Google Drive, Google Photos, or Dropbox.
+- `POST /api/accounts/mega/connect`: Connect MEGA account with email/password.
+- `POST /api/sync/run`: Trigger immediate synchronization across all connected accounts.
 
-## 🔌 API overview
+### 🗃️ Virtual Files & Folders
+- `GET /api/files?path=/`: List files and folders in a virtual directory.
+- `GET /api/files?recent=1`: List recently modified or uploaded files.
+- `GET /api/files?starred=1`: List starred files.
+- `GET /api/files?shared=1`: List shared items from supported providers.
+- `GET /api/files/:id/details`: Get file metadata and download link.
+- `PATCH /api/files/:id/star`: Toggle starred state.
+- `POST /api/files/bulk/delete`: Bulk delete files and folders across providers.
 
-These are the main API surfaces currently present in the project.
+### ⬆️ Uploads & Storage Allocation
+- `POST /api/uploads/initiate`: Initiate upload session and determine target cloud account.
+- `POST /api/uploads/:uploadId/stream`: Stream file chunks to target cloud provider.
+- `WS /ws/uploads?uploadId=...`: Real-time WebSocket connection for upload progress.
+- `GET /api/allocation`: Get active storage allocation strategy.
+- `PATCH /api/allocation`: Update allocation strategy (`round_robin`, `most_free`, etc.).
 
-### Health and sync
-- `GET /api/health`
-- `POST /api/sync/run`
+---
 
-### Authentication
-- `GET /api/auth/me`
-- `POST /api/auth/register`
-- `POST /api/auth/login`
-- `POST /api/auth/logout`
+## 🔒 Security & Data Privacy
 
-### Accounts
-- `GET /api/accounts`
-- `DELETE /api/accounts/:id`
-- `GET /api/accounts/google/status`
-- `GET /api/accounts/onedrive/status`
-- `GET /api/accounts/dropbox/status`
-- `GET /api/accounts/yandex/status`
-- `GET /api/accounts/mega/status`
-- `GET /api/accounts/google/connect`
-- `GET /api/accounts/onedrive/connect`
-- `GET /api/accounts/dropbox/connect`
-- `GET /api/accounts/yandex/connect`
-- `POST /api/accounts/mega/connect`
-- `POST /api/accounts/pcloud/connect`
-- `POST /api/accounts/s3/connect`
-- OAuth callback routes under `/api/accounts/*/callback`
+- **No Credential Exposure**: Never commit `.env` or sensitive secret keys.
+- **Client Credential Encryption**: Cloud provider tokens are encrypted at rest using AES-256 derived from machine fingerprints and secret key material.
+- **Cross-Site Protection**: In hosted mode, auth tokens are transmitted via `HttpOnly`, `SameSite=None`, `Secure` cookies.
+- **Spam Mitigation**: Hosted mode enforces verified Google OAuth 2.0 sign-in to eliminate malicious registration vectors.
 
-### Files
-- `GET /api/files`
-- `GET /api/files?path=/`
-- `GET /api/files?recent=1`
-- `GET /api/files?starred=1`
-- `GET /api/files?shared=1`
-- `GET /api/files/:id/shared-children`
-- `PATCH /api/files/:id/star`
-- `POST /api/files/bulk/delete`
-
-> The project also includes additional file routes for file explorer operations such as details, download, rename, create folder, and per-item delete in the file service / adapter workflow.
-
-### Uploads
-- `POST /api/uploads/initiate`
-- `POST /api/uploads/:uploadId/stream`
-- `WS /ws/uploads?uploadId=...`
-
-### Settings and allocation
-- `GET /api/settings`
-- `PATCH /api/settings`
-- `GET /api/allocation`
-- `PATCH /api/allocation`
-
-## 🧠 Storage allocation behavior
-
-When an upload starts, the backend selects the target account based on the user's allocation configuration. This allows file distribution across providers to be automatic or manually prioritized depending on the user's preference.
-
-Example use cases:
-- Distribute uploads across multiple accounts in rotation
-- Prioritize the account with the most free space
-- Enforce a specific manual ordering
-
-## 🗄️ Data persistence
-
-Important data stored locally includes:
-
-- Mirrored file metadata in SQLite (`backend/OneSpace.db`)
-- Linked account metadata
-- Encrypted provider credentials / token material
-- User settings
-- Allocation config and rotation state
-- Auth session data for hosted mode
-
-## 🔒 Security notes
-
-- Do not commit `backend/.env`
-- Do not commit local production or personal testing database files
-- OAuth client secrets, refresh tokens, session secrets, access keys, and provider passwords must be treated as sensitive
-- `OneSpace_SECRET_HALF` is used as part of local encryption key material
-- For `APP_MODE=hosted`, use a strong `AUTH_SECRET` and the correct frontend origin
+---
 
 ## 👤 Author
 
 **Chandan Raj**
+- GitHub: [@chandanraj-03](https://github.com/chandanraj-03)
+- Repository: [chandanraj-03/OneSpace](https://github.com/chandanraj-03/OneSpace)
+
+---
 
 ## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
+This project is open-source software licensed under the [MIT License](LICENSE).
