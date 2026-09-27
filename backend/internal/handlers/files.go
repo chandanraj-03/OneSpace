@@ -41,6 +41,7 @@ func (h *FileHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
 	search := q.Get("search")
 	starred := q.Get("starred") == "1" || q.Get("starred") == "true"
 	recent := q.Get("recent") == "1" || q.Get("recent") == "true"
+	shared := q.Get("shared") == "1" || q.Get("shared") == "true"
 
 	limitStr := q.Get("limit")
 	limit := 50
@@ -48,7 +49,6 @@ func (h *FileHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
 		limit = l
 	}
 
-	// Auto-trigger sync if user has active cloud accounts but no files indexed yet
 	if h.db.CountFilesByUser(user.ID) == 0 && len(h.db.ListActiveCloudAccounts(user.ID)) > 0 {
 		_, _ = services.Sync.RunDeltaSync(r.Context(), user.ID)
 	}
@@ -60,6 +60,8 @@ func (h *FileHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
 		files = h.db.ListStarredFiles(user.ID)
 	} else if recent {
 		files = h.db.ListRecentFiles(user.ID)
+	} else if shared {
+		files = []models.FileMetadata{}
 	} else {
 		files = h.db.ListFilesByPath(user.ID, path)
 	}

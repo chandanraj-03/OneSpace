@@ -26,6 +26,10 @@ export function renderLandingView(container, { state, navigateTo, toggleTheme, s
 					</nav>
 
 					<div class="landing-nav-actions">
+						<div id="landing-backend-pill" class="backend-status-pill status-waking" title="Backend: Render Inactive / Waking Up">
+							<span class="status-indicator-dot"></span>
+							<span class="status-indicator-text">Render Inactive / Waking Up</span>
+						</div>
 						<button type="button" id="landing-theme-toggle" class="btn-icon" title="Toggle dark/light theme" aria-label="Toggle theme">
 							<span id="landing-theme-icon">${state.theme === 'dark' ? icons.sun : icons.moon}</span>
 						</button>

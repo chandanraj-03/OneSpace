@@ -43,21 +43,3 @@ services:
       - key: DROPBOX_REDIRECT_URI
         value: https://onespace-api-hkdi.onrender.com/api/accounts/dropbox/callback
 
-  # ---------------------------------------------------------------------------
-  # Frontend Static Site (Free Tier)
-  # ---------------------------------------------------------------------------
-  - type: web
-    name: onespace-web
-    runtime: static
-    buildCommand: npm --prefix frontend install && npm --prefix frontend run build
-    staticPublishPath: frontend/dist
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
-    envVars:
-      - key: VITE_API_BASE_URL
-        value: https://onespace-api-hkdi.onrender.com/api
-      - key: VITE_WS_BASE_URL
-        value: wss://onespace-api-hkdi.onrender.com/ws/uploads
-

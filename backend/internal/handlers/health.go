@@ -221,6 +221,14 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 		authSummary = services.Auth.GetAuthSummary(user)
 	}
 
+	syncStatus := map[string]interface{}{"lastRunAt": nil, "isRunning": false}
+	if services.Sync != nil && user != nil {
+		rep := services.Sync.GetLastReport(user.ID)
+		syncStatus["lastRunAt"] = rep.LastRunAt
+		syncStatus["isRunning"] = rep.IsRunning
+		syncStatus["changesDetected"] = rep.ChangesDetected
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
 		"status":    "ok",
@@ -228,7 +236,7 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 		"runtime":   "go",
 		"config":    h.cfg.Redact(),
 		"auth":      authSummary,
-		"sync":      map[string]interface{}{"lastRunAt": nil, "isRunning": false},
+		"sync":      syncStatus,
 		"timestamp": time.Now().UTC().Format(time.RFC3339),
 	})
 }

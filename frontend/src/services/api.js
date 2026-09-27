@@ -3,8 +3,11 @@ function resolveApiBaseUrl() {
 	if (raw && raw !== 'https://onespace-api.onrender.com/api') {
 		return raw;
 	}
-	if (typeof window !== 'undefined' && window.location.hostname.endsWith('.onrender.com')) {
-		return 'https://onespace-api-hkdi.onrender.com/api';
+	if (typeof window !== 'undefined') {
+		const host = window.location.hostname;
+		if (host.endsWith('.onrender.com') || host.endsWith('.vercel.app')) {
+			return 'https://onespace-api-hkdi.onrender.com/api';
+		}
 	}
 	return raw || 'http://localhost:8787/api';
 }
@@ -14,14 +17,17 @@ function resolveWsBaseUrl(apiBase) {
 	if (raw && raw !== 'wss://onespace-api.onrender.com/ws/uploads') {
 		return raw;
 	}
-	if (typeof window !== 'undefined' && window.location.hostname.endsWith('.onrender.com')) {
-		return 'wss://onespace-api-hkdi.onrender.com/ws/uploads';
+	if (typeof window !== 'undefined') {
+		const host = window.location.hostname;
+		if (host.endsWith('.onrender.com') || host.endsWith('.vercel.app')) {
+			return 'wss://onespace-api-hkdi.onrender.com/ws/uploads';
+		}
 	}
 	return raw || apiBase.replace(/^http/, 'ws').replace(/\/api$/, '/ws/uploads');
 }
 
 export const API_BASE_URL = resolveApiBaseUrl();
-const WS_BASE_URL = resolveWsBaseUrl(API_BASE_URL);
+export const WS_BASE_URL = resolveWsBaseUrl(API_BASE_URL);
 
 async function request(path, options = {}) {
 	const response = await fetch(`${API_BASE_URL}${path}`, {
@@ -47,33 +53,9 @@ export const authApi = {
 	me() {
 		return request('/auth/me');
 	},
-	login(payload) {
-		return request('/auth/login', {
-			method: 'POST',
-			body: JSON.stringify(payload),
-		});
-	},
-	register(payload) {
-		return request('/auth/register', {
-			method: 'POST',
-			body: JSON.stringify(payload),
-		});
-	},
 	logout() {
 		return request('/auth/logout', {
 			method: 'POST',
-		});
-	},
-};
-
-export const settingsApi = {
-	getSettings() {
-		return request('/settings');
-	},
-	updateSettings(payload) {
-		return request('/settings', {
-			method: 'PATCH',
-			body: JSON.stringify(payload),
 		});
 	},
 };
@@ -95,12 +77,6 @@ export const api = {
 	},
 	listSharedWithMeFiles() {
 		return request('/files?shared=1');
-	},
-	listSharedFolderChildren(fileId) {
-		return request(`/files/${fileId}/shared-children`);
-	},
-	getFileDetails(fileId) {
-		return request(`/files/${fileId}`);
 	},
 	createFolder(payload) {
 		return request('/files/folders', {
@@ -131,23 +107,14 @@ export const api = {
 			body: JSON.stringify({ ids: fileIds }),
 		});
 	},
-	getGoogleIntegrationStatus() {
-		return request('/accounts/google/status');
-	},
 	getGoogleConnectUrl() {
 		return request('/accounts/google/connect');
 	},
 	getGooglePhotosConnectUrl() {
 		return request('/accounts/google-photos/connect');
 	},
-	getDropboxIntegrationStatus() {
-		return request('/accounts/dropbox/status');
-	},
 	getDropboxConnectUrl() {
 		return request('/accounts/dropbox/connect');
-	},
-	getMegaIntegrationStatus() {
-		return request('/accounts/mega/status');
 	},
 	connectMegaAccount(payload) {
 		return request('/accounts/mega/connect', {
@@ -162,9 +129,6 @@ export const api = {
 		return request(`/accounts/${accountId}`, {
 			method: 'DELETE',
 		});
-	},
-	getHealth() {
-		return request('/health');
 	},
 	runSync() {
 		return request('/sync/run', {
@@ -205,12 +169,6 @@ export const api = {
 	previewUrl(fileId) {
 		return `${API_BASE_URL}/files/${fileId}/preview`;
 	},
-	getSettings() {
-		return settingsApi.getSettings();
-	},
-	updateSettings(payload) {
-		return settingsApi.updateSettings(payload);
-	},
 	getAllocation() {
 		return request('/allocation');
 	},
@@ -219,5 +177,23 @@ export const api = {
 			method: 'PATCH',
 			body: JSON.stringify(payload),
 		});
+	},
+	checkHealth(timeoutMs = 6000) {
+		const controller = new AbortController();
+		const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+		return fetch(`${API_BASE_URL}/health`, {
+			method: 'GET',
+			signal: controller.signal,
+			headers: { Accept: 'application/json' },
+		})
+			.then(async (res) => {
+				clearTimeout(timeoutId);
+				if (!res.ok) throw new Error(`HTTP ${res.status}`);
+				return res.json();
+			})
+			.catch((err) => {
+				clearTimeout(timeoutId);
+				throw err;
+			});
 	},
 };

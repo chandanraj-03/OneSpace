@@ -93,7 +93,7 @@ func (s *AuthService) GetAuthSummary(user *models.User) map[string]interface{} {
 }
 
 func (s *AuthService) SetAuthCookie(w http.ResponseWriter, token string) {
-	isProd := os.Getenv("NODE_ENV") == "production" || os.Getenv("RENDER") != ""
+	isProd := s.cfg.AppMode == "hosted" || os.Getenv("RENDER") != "" || os.Getenv("ENV") == "production"
 	sameSite := http.SameSiteLaxMode
 	if isProd {
 		sameSite = http.SameSiteNoneMode
@@ -115,7 +115,7 @@ func (s *AuthService) SetAuthCookie(w http.ResponseWriter, token string) {
 }
 
 func (s *AuthService) ClearAuthCookie(w http.ResponseWriter) {
-	isProd := os.Getenv("NODE_ENV") == "production" || os.Getenv("RENDER") != ""
+	isProd := s.cfg.AppMode == "hosted" || os.Getenv("RENDER") != "" || os.Getenv("ENV") == "production"
 	sameSite := http.SameSiteLaxMode
 	if isProd {
 		sameSite = http.SameSiteNoneMode

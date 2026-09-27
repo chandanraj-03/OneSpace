@@ -10,6 +10,7 @@ import {
 } from './formatters.js';
 import { renderLandingView } from './views/landingView.js';
 import { renderLoginView } from './views/loginView.js';
+import { initBackendStatus, checkBackend, updateUI } from './services/backendStatus.js';
 
 // ==========================================================================
 // Application State
@@ -49,6 +50,30 @@ const state = {
 
 document.addEventListener('DOMContentLoaded', async () => {
 	initTheme();
+	initBackendStatus();
+
+	// Auto-reload workspace once backend transitions from waking to active
+	window.addEventListener('backend:active', async (e) => {
+		await checkAuthStatus();
+		if (isUserLoggedIn()) {
+			await refreshAccounts();
+			if (state.currentView !== 'landing' && state.currentView !== 'login') {
+				renderCurrentView();
+			}
+		}
+	});
+
+	// Manual ping click handlers
+	document.getElementById('btn-wake-ping-now')?.addEventListener('click', () => {
+		showToast('Pinging Render backend...', 'info');
+		checkBackend(true);
+	});
+	document.addEventListener('click', (e) => {
+		if (e.target.closest('.backend-status-pill')) {
+			checkBackend(true);
+		}
+	});
+
 	await checkAuthStatus();
 	initRouting();
 	initEventListeners();
@@ -178,6 +203,7 @@ function handleRoute() {
 
 	// Render view
 	renderCurrentView();
+	updateUI();
 }
 
 function cleanUrlOAuthParams() {

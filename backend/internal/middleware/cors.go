@@ -21,7 +21,7 @@ func NewCORS(cfg *config.Config) func(next http.Handler) http.Handler {
 			if origin == "http://localhost:5173" || origin == "http://localhost:4173" || origin == "http://127.0.0.1:5173" {
 				return true
 			}
-			if strings.HasSuffix(origin, ".onrender.com") {
+			if strings.HasSuffix(origin, ".onrender.com") || strings.HasSuffix(origin, ".vercel.app") {
 				return true
 			}
 			return true

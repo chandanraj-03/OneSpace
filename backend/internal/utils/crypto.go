@@ -15,8 +15,6 @@ import (
 	"io"
 	"strings"
 	"time"
-
-	"golang.org/x/crypto/scrypt"
 )
 
 func Sha256(value string) string {
@@ -98,13 +96,12 @@ func EncryptJSON(data interface{}, key []byte) (string, error) {
 		return "", err
 	}
 
-	// gcm.Seal appends tag (16 bytes) to ciphertext
 	sealed := gcm.Seal(nil, nonce, plaintext, nil)
 	tagSize := gcm.Overhead()
 	ciphertext := sealed[:len(sealed)-tagSize]
 	tag := sealed[len(sealed)-tagSize:]
 
-	// Match Node.js format: Buffer.concat([iv, authTag, ciphertext]).toString('base64')
+	// Binary layout: iv[12] + authTag[16] + ciphertext[N]
 	combined := append(nonce, tag...)
 	combined = append(combined, ciphertext...)
 	return base64.StdEncoding.EncodeToString(combined), nil
@@ -124,7 +121,7 @@ func tryOpenGCM(key, nonce, ciphertext, tag []byte) ([]byte, error) {
 }
 
 func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
-	// Attempt 1: 3-part hex format (nonce:ciphertext:tag)
+	// 3-part hex format (nonce:ciphertext:tag)
 	if strings.Contains(encryptedStr, ":") {
 		parts := strings.Split(encryptedStr, ":")
 		if len(parts) == 3 {
@@ -139,7 +136,7 @@ func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
 		}
 	}
 
-	// Attempt 2: Base64 format (Node.js standard: iv[12] + authTag[16] + ciphertext[N])
+	// Base64 format: iv[12] + authTag[16] + ciphertext[N]
 	raw, err := base64.StdEncoding.DecodeString(encryptedStr)
 	if err != nil {
 		raw, err = base64.RawURLEncoding.DecodeString(encryptedStr)
@@ -154,7 +151,7 @@ func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
 			return json.Unmarshal(pt, target)
 		}
 
-		// Also try standard GCM seal order: iv[12] + (ciphertext + tag)
+		// Standard GCM seal order: iv[12] + (ciphertext + tag)
 		block, bErr := aes.NewCipher(key)
 		if bErr == nil {
 			if gcm, gErr := cipher.NewGCM(block); gErr == nil {
@@ -166,41 +163,4 @@ func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
 	}
 
 	return errors.New("unable to decrypt credentials: authentication failed")
-}
-
-func HashPassword(password string) (string, error) {
-	salt := make([]byte, 16)
-	if _, err := io.ReadFull(rand.Reader, salt); err != nil {
-		return "", err
-	}
-
-	hash, err := scrypt.Key([]byte(password), salt, 16384, 8, 1, 64)
-	if err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x:%x", salt, hash), nil
-}
-
-func VerifyPassword(password, storedHash string) bool {
-	parts := strings.Split(storedHash, ":")
-	if len(parts) != 2 {
-		return false
-	}
-
-	salt, err := hex.DecodeString(parts[0])
-	if err != nil {
-		return false
-	}
-	expectedHash, err := hex.DecodeString(parts[1])
-	if err != nil {
-		return false
-	}
-
-	actualHash, err := scrypt.Key([]byte(password), salt, 16384, 8, 1, 64)
-	if err != nil {
-		return false
-	}
-
-	return subtle.ConstantTimeCompare(actualHash, expectedHash) == 1
 }

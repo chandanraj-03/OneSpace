@@ -14,9 +14,15 @@ export function renderLoginView(container, { state, navigateTo, toggleTheme, sho
 						${icons.arrowLeft}
 						<span>Back to OneSpace</span>
 					</a>
-					<button type="button" id="login-theme-toggle" class="btn-icon" title="Toggle theme">
-						<span>${state.theme === 'dark' ? icons.sun : icons.moon}</span>
-					</button>
+					<div class="login-nav-right" style="display: flex; align-items: center; gap: 12px;">
+						<div id="login-backend-pill" class="backend-status-pill status-waking" title="Backend: Render Inactive / Waking Up">
+							<span class="status-indicator-dot"></span>
+							<span class="status-indicator-text">Render Inactive / Waking Up</span>
+						</div>
+						<button type="button" id="login-theme-toggle" class="btn-icon" title="Toggle theme">
+							<span>${state.theme === 'dark' ? icons.sun : icons.moon}</span>
+						</button>
+					</div>
 				</header>
 
 				<!-- Authentication Center Card -->
