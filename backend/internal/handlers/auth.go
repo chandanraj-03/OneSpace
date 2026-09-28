@@ -3,11 +3,13 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
+	"onespace/backend/internal/adapters"
 	"onespace/backend/internal/config"
 	"onespace/backend/internal/database"
 	"onespace/backend/internal/middleware"
@@ -18,6 +20,7 @@ import (
 	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
+	"google.golang.org/api/drive/v3"
 	googleOauth2 "google.golang.org/api/oauth2/v2"
 	"google.golang.org/api/option"
 )
@@ -33,9 +36,22 @@ func NewAuthHandler(cfg *config.Config, db *database.Database) *AuthHandler {
 
 func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r.Context())
+	data := services.Auth.GetAuthSummary(user)
+	if user != nil {
+		if cookie, err := r.Cookie(h.cfg.AuthCookieName); err == nil && cookie.Value != "" {
+			data["token"] = cookie.Value
+		} else {
+			authHeader := r.Header.Get("Authorization")
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				data["token"] = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+			} else if custom := r.Header.Get("X-Session-Token"); custom != "" {
+				data["token"] = strings.TrimSpace(custom)
+			}
+		}
+	}
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"data": services.Auth.GetAuthSummary(user),
+		"data": data,
 	})
 }
 
@@ -56,8 +72,20 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	token := ""
 	if cookie, err := r.Cookie(h.cfg.AuthCookieName); err == nil && cookie.Value != "" {
-		services.Auth.DestroySession(cookie.Value)
+		token = cookie.Value
+	}
+	if token == "" {
+		authHeader := r.Header.Get("Authorization")
+		if strings.HasPrefix(authHeader, "Bearer ") {
+			token = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+		} else if custom := r.Header.Get("X-Session-Token"); custom != "" {
+			token = strings.TrimSpace(custom)
+		}
+	}
+	if token != "" {
+		services.Auth.DestroySession(token)
 	}
 
 	services.Auth.ClearAuthCookie(w)
@@ -76,6 +104,8 @@ func (h *AuthHandler) getGoogleOAuth2Config() *oauth2.Config {
 			"openid",
 			"https://www.googleapis.com/auth/userinfo.email",
 			"https://www.googleapis.com/auth/userinfo.profile",
+			"https://www.googleapis.com/auth/drive",
+			"https://www.googleapis.com/auth/drive.metadata",
 		},
 		Endpoint: google.Endpoint,
 	}
@@ -92,7 +122,7 @@ func (h *AuthHandler) GoogleURL(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conf := h.getGoogleOAuth2Config()
-	authURL := conf.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
+	authURL := conf.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent select_account"))
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
@@ -115,7 +145,7 @@ func (h *AuthHandler) GoogleRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 
 	conf := h.getGoogleOAuth2Config()
-	authURL := conf.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "select_account"))
+	authURL := conf.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent select_account"))
 	http.Redirect(w, r, authURL, http.StatusFound)
 }
 
@@ -198,6 +228,61 @@ func (h *AuthHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) {
 	_, sessionToken := services.Auth.CreateSession(user.ID)
 	services.Auth.SetAuthCookie(w, sessionToken)
 
-	frontendURL.Fragment = "home"
+	// Automatically set Google account as the first linked cloud drive
+	refreshToken := token.RefreshToken
+	if refreshToken == "" {
+		for _, ea := range h.db.ListCloudAccounts(user.ID) {
+			if ea.Provider == "google_drive" && strings.ToLower(ea.Email) == email {
+				var oldCreds adapters.GoogleDriveCredentials
+				if err := utils.DecryptJSON(ea.EncryptedCredentials, h.cfg.EncryptionKey, &oldCreds); err == nil && oldCreds.RefreshToken != "" {
+					refreshToken = oldCreds.RefreshToken
+					break
+				}
+			}
+		}
+	}
+
+	creds := adapters.GoogleDriveCredentials{
+		ClientID:     h.cfg.GoogleClientID,
+		ClientSecret: h.cfg.GoogleClientSecret,
+		RedirectURI:  h.cfg.GoogleRedirectURI,
+		RefreshToken: refreshToken,
+		AccessToken:  token.AccessToken,
+		ExpiryDate:   token.Expiry.UnixMilli(),
+	}
+	encCreds, _ := utils.EncryptJSON(creds, h.cfg.EncryptionKey)
+
+	var totalSpace int64 = 15 * 1024 * 1024 * 1024
+	var usedSpace int64 = 0
+	if driveSrv, err := drive.NewService(ctx, option.WithTokenSource(conf.TokenSource(ctx, token))); err == nil {
+		if about, err := driveSrv.About.Get().Fields("storageQuota").Context(ctx).Do(); err == nil && about.StorageQuota != nil {
+			if about.StorageQuota.Limit > 0 {
+				totalSpace = about.StorageQuota.Limit
+			}
+			usedSpace = about.StorageQuota.Usage
+		}
+	}
+
+	now := time.Now()
+	acc := &models.CloudAccount{
+		ID:                   uuid.NewString(),
+		UserID:               user.ID,
+		Provider:             "google_drive",
+		Email:                email,
+		EncryptedCredentials: encCreds,
+		TotalSpace:           totalSpace,
+		UsedSpace:            usedSpace,
+		Status:               "active",
+		CreatedAt:            now,
+		UpdatedAt:            now,
+	}
+	h.db.UpsertCloudAccount(acc)
+
+	go func(uid string) {
+		_, _ = services.Sync.RunDeltaSync(context.Background(), uid)
+	}(user.ID)
+
+	frontendURL.Fragment = fmt.Sprintf("home?token=%s", sessionToken)
 	http.Redirect(w, r, frontendURL.String(), http.StatusFound)
 }
+

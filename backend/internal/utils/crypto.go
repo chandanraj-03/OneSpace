@@ -13,6 +13,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -120,7 +122,7 @@ func tryOpenGCM(key, nonce, ciphertext, tag []byte) ([]byte, error) {
 	return gcm.Open(nil, nonce, sealed, nil)
 }
 
-func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
+func decryptWithKey(encryptedStr string, key []byte) ([]byte, error) {
 	// 3-part hex format (nonce:ciphertext:tag)
 	if strings.Contains(encryptedStr, ":") {
 		parts := strings.Split(encryptedStr, ":")
@@ -130,7 +132,7 @@ func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
 			tag, err3 := hex.DecodeString(parts[2])
 			if err1 == nil && err2 == nil && err3 == nil {
 				if pt, err := tryOpenGCM(key, nonce, ciphertext, tag); err == nil {
-					return json.Unmarshal(pt, target)
+					return pt, nil
 				}
 			}
 		}
@@ -148,7 +150,7 @@ func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
 		ciphertext := raw[28:]
 
 		if pt, err := tryOpenGCM(key, nonce, ciphertext, tag); err == nil {
-			return json.Unmarshal(pt, target)
+			return pt, nil
 		}
 
 		// Standard GCM seal order: iv[12] + (ciphertext + tag)
@@ -156,11 +158,66 @@ func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
 		if bErr == nil {
 			if gcm, gErr := cipher.NewGCM(block); gErr == nil {
 				if pt, err := gcm.Open(nil, raw[:12], raw[12:], nil); err == nil {
-					return json.Unmarshal(pt, target)
+					return pt, nil
 				}
 			}
 		}
 	}
 
+	return nil, errors.New("decryption failed")
+}
+
+func getFallbackKeys() [][]byte {
+	var keys [][]byte
+	hostname, _ := os.Hostname()
+	envHalf := os.Getenv("ONESPACE_SECRET_HALF")
+	if envHalf == "" {
+		envHalf = "onespace-dev-secret-half"
+	}
+	authSecret := os.Getenv("AUTH_SECRET")
+	if authSecret == "" {
+		authSecret = envHalf
+	}
+
+	// Node.js win32/x64 key
+	fpNodeWin := sha256.Sum256([]byte(fmt.Sprintf("%s|win32|x64", hostname)))
+	k1 := sha256.Sum256([]byte(fmt.Sprintf("%s:%x", envHalf, fpNodeWin)))
+	keys = append(keys, k1[:])
+
+	// Node.js linux/x64 key
+	fpNodeLinux := sha256.Sum256([]byte(fmt.Sprintf("%s|linux|x64", hostname)))
+	k2 := sha256.Sum256([]byte(fmt.Sprintf("%s:%x", envHalf, fpNodeLinux)))
+	keys = append(keys, k2[:])
+
+	// Go runtime early key
+	fpGo := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s", hostname, runtime.GOOS, runtime.GOARCH)))
+	k3 := sha256.Sum256([]byte(fmt.Sprintf("%s:%x", envHalf, fpGo)))
+	keys = append(keys, k3[:])
+
+	// Raw authSecret key
+	k4 := sha256.Sum256([]byte(authSecret))
+	keys = append(keys, k4[:])
+
+	// Default fallback key
+	k5 := sha256.Sum256([]byte("onespace-dev-secret-half:onespace-dev-auth-secret"))
+	keys = append(keys, k5[:])
+
+	return keys
+}
+
+func DecryptJSON(encryptedStr string, key []byte, target interface{}) error {
+	// 1. Try provided primary key
+	if pt, err := decryptWithKey(encryptedStr, key); err == nil {
+		return json.Unmarshal(pt, target)
+	}
+
+	// 2. Try candidate fallback keys (e.g. from Node.js or earlier migration)
+	for _, fallbackKey := range getFallbackKeys() {
+		if pt, err := decryptWithKey(encryptedStr, fallbackKey); err == nil {
+			return json.Unmarshal(pt, target)
+		}
+	}
+
 	return errors.New("unable to decrypt credentials: authentication failed")
 }
+

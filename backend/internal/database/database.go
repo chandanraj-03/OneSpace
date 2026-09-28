@@ -2,7 +2,9 @@ package database
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -12,6 +14,7 @@ import (
 	"onespace/backend/internal/utils"
 
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -86,6 +89,26 @@ func (d *Database) InitMongo(uri string) {
 	d.hydrate(context.Background())
 }
 
+func parseFlexibleTime(val interface{}) time.Time {
+	switch v := val.(type) {
+	case time.Time:
+		return v
+	case primitive.DateTime:
+		return v.Time()
+	case string:
+		if t, err := time.Parse(time.RFC3339, v); err == nil {
+			return t
+		}
+		if t, err := time.Parse("2006-01-02 15:04:05", v); err == nil {
+			return t
+		}
+		if t, err := time.Parse("2006-01-02T15:04:05.999Z07:00", v); err == nil {
+			return t
+		}
+	}
+	return time.Now()
+}
+
 func (d *Database) hydrate(ctx context.Context) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -98,6 +121,33 @@ func (d *Database) hydrate(ctx context.Context) {
 				d.users[docs[i].ID] = &docs[i]
 			}
 			log.Printf("[MongoDB] Hydrated %d users\n", len(docs))
+		} else {
+			log.Printf("[MongoDB] Users standard hydration note: %v. Running resilient fallback parser...\n", err)
+			cur2, err2 := d.mongoDb.Collection("users").Find(ctx, bson.M{})
+			if err2 == nil {
+				var rawDocs []bson.M
+				if err3 := cur2.All(ctx, &rawDocs); err3 == nil {
+					for _, raw := range rawDocs {
+						id, _ := raw["id"].(string)
+						email, _ := raw["email"].(string)
+						if id != "" && email != "" {
+							u := &models.User{
+								ID:        id,
+								Email:     email,
+								CreatedAt: parseFlexibleTime(raw["created_at"]),
+								UpdatedAt: parseFlexibleTime(raw["updated_at"]),
+							}
+							if localVal, ok := raw["is_local"].(int32); ok {
+								u.IsLocal = int(localVal)
+							} else if localVal, ok := raw["is_local"].(int); ok {
+								u.IsLocal = localVal
+							}
+							d.users[id] = u
+						}
+					}
+					log.Printf("[MongoDB] Hydrated %d users via resilient fallback parser\n", len(d.users))
+				}
+			}
 		}
 	}
 
@@ -181,31 +231,80 @@ func (d *Database) asyncDelete(table string, filter bson.M) {
 
 func (d *Database) GetUserByID(id string) *models.User {
 	d.mu.RLock()
-	defer d.mu.RUnlock()
 	u, ok := d.users[id]
-	if !ok {
-		return nil
+	d.mu.RUnlock()
+	if ok && u != nil {
+		clone := *u
+		return &clone
 	}
-	clone := *u
-	return &clone
+
+	// Fallback direct query to MongoDB if not in memory
+	if d.isConnected && d.mongoDb != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		var dbUser models.User
+		err := d.mongoDb.Collection("users").FindOne(ctx, bson.M{"id": id}).Decode(&dbUser)
+		if err == nil && dbUser.ID != "" {
+			d.mu.Lock()
+			d.users[dbUser.ID] = &dbUser
+			d.mu.Unlock()
+			return &dbUser
+		}
+	}
+
+	return nil
 }
 
 func (d *Database) GetUserByEmail(email string) *models.User {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
 	norm := strings.ToLower(strings.TrimSpace(email))
+	d.mu.RLock()
+	var bestMatch *models.User
 	for _, u := range d.users {
-		if strings.ToLower(u.Email) == norm {
-			clone := *u
-			return &clone
+		if strings.ToLower(strings.TrimSpace(u.Email)) == norm {
+			if bestMatch == nil {
+				bestMatch = u
+			} else if bestMatch.IsLocal == 1 && u.IsLocal == 0 {
+				bestMatch = u
+			}
 		}
 	}
+	d.mu.RUnlock()
+
+	if bestMatch != nil {
+		clone := *bestMatch
+		return &clone
+	}
+
+	// Fallback direct query to MongoDB if not in memory
+	if d.isConnected && d.mongoDb != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		var dbUser models.User
+		err := d.mongoDb.Collection("users").FindOne(ctx, bson.M{
+			"email": bson.M{"$regex": fmt.Sprintf("^%s$", regexp.QuoteMeta(norm)), "$options": "i"},
+		}).Decode(&dbUser)
+		if err == nil && dbUser.ID != "" {
+			d.mu.Lock()
+			d.users[dbUser.ID] = &dbUser
+			d.mu.Unlock()
+			return &dbUser
+		}
+	}
+
 	return nil
 }
 
 func (d *Database) CreateUser(u *models.User) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
+	// Ensure we don't create a duplicate user if email already exists
+	norm := strings.ToLower(strings.TrimSpace(u.Email))
+	for _, existing := range d.users {
+		if strings.ToLower(strings.TrimSpace(existing.Email)) == norm {
+			u.ID = existing.ID
+			break
+		}
+	}
 	d.users[u.ID] = u
 	d.asyncPersist("users", u.ID, u)
 }
@@ -223,21 +322,58 @@ func (d *Database) CreateSession(s *models.AuthSession) {
 
 func (d *Database) GetSessionByTokenHash(tokenHash string) (*models.AuthSession, *models.User) {
 	d.mu.RLock()
-	defer d.mu.RUnlock()
 	for _, s := range d.authSessions {
 		if s.TokenHash == tokenHash {
 			if s.ExpiresAt.Before(time.Now()) {
+				d.mu.RUnlock()
 				return nil, nil
 			}
 			user, ok := d.users[s.UserID]
 			if !ok {
+				// Safety fallback: if user wasn't in memory, query directly
+				d.mu.RUnlock()
+				if d.isConnected && d.mongoDb != nil {
+					ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+					var dbUser models.User
+					err := d.mongoDb.Collection("users").FindOne(ctx, bson.M{"id": s.UserID}).Decode(&dbUser)
+					cancel()
+					if err == nil && dbUser.ID != "" {
+						d.mu.Lock()
+						d.users[dbUser.ID] = &dbUser
+						d.mu.Unlock()
+						sClone := *s
+						return &sClone, &dbUser
+					}
+				}
 				return nil, nil
 			}
+			d.mu.RUnlock()
 			sClone := *s
 			uClone := *user
 			return &sClone, &uClone
 		}
 	}
+	d.mu.RUnlock()
+
+	// Safety fallback if session is in Mongo but not in memory
+	if d.isConnected && d.mongoDb != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		var dbSession models.AuthSession
+		err := d.mongoDb.Collection("auth_sessions").FindOne(ctx, bson.M{"token_hash": tokenHash}).Decode(&dbSession)
+		if err == nil && dbSession.ID != "" && dbSession.ExpiresAt.After(time.Now()) {
+			var dbUser models.User
+			uErr := d.mongoDb.Collection("users").FindOne(ctx, bson.M{"id": dbSession.UserID}).Decode(&dbUser)
+			if uErr == nil && dbUser.ID != "" {
+				d.mu.Lock()
+				d.authSessions[dbSession.ID] = &dbSession
+				d.users[dbUser.ID] = &dbUser
+				d.mu.Unlock()
+				return &dbSession, &dbUser
+			}
+		}
+	}
+
 	return nil, nil
 }
 
@@ -270,9 +406,9 @@ func (d *Database) UpsertCloudAccount(acc *models.CloudAccount) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	// Check existing by user_id + provider + email
+	// Check existing by user_id + provider + email (case insensitive)
 	for _, a := range d.accounts {
-		if a.UserID == acc.UserID && a.Provider == acc.Provider && a.Email == acc.Email {
+		if a.UserID == acc.UserID && a.Provider == acc.Provider && strings.EqualFold(strings.TrimSpace(a.Email), strings.TrimSpace(acc.Email)) {
 			acc.ID = a.ID
 			acc.CreatedAt = a.CreatedAt
 			break
@@ -296,13 +432,32 @@ func (d *Database) GetCloudAccount(userID, id string) *models.CloudAccount {
 
 func (d *Database) ListCloudAccounts(userID string) []models.CloudAccount {
 	d.mu.RLock()
-	defer d.mu.RUnlock()
 	var list []models.CloudAccount
 	for _, a := range d.accounts {
 		if a.UserID == userID {
 			list = append(list, *a)
 		}
 	}
+	d.mu.RUnlock()
+
+	// Safety fallback: if 0 accounts in memory for this user, check Mongo directly
+	if len(list) == 0 && d.isConnected && d.mongoDb != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		cur, err := d.mongoDb.Collection("cloud_accounts").Find(ctx, bson.M{"user_id": userID})
+		if err == nil {
+			var dbAccounts []models.CloudAccount
+			if err := cur.All(ctx, &dbAccounts); err == nil && len(dbAccounts) > 0 {
+				d.mu.Lock()
+				for i := range dbAccounts {
+					d.accounts[dbAccounts[i].ID] = &dbAccounts[i]
+					list = append(list, dbAccounts[i])
+				}
+				d.mu.Unlock()
+			}
+		}
+	}
+
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].Provider != list[j].Provider {
 			return list[i].Provider < list[j].Provider
@@ -549,6 +704,52 @@ func (d *Database) DeleteFilesByCloudAccount(userID, accountID string) {
 		}
 	}
 	d.asyncDelete("file_metadata", bson.M{"user_id": userID, "cloud_account_id": accountID})
+}
+
+func (d *Database) ReplaceFilesForAccount(userID, accountID string, newFiles []models.FileMetadata) {
+	d.mu.Lock()
+	// 1. Remove old files from memory
+	for id, f := range d.files {
+		if f.UserID == userID && f.CloudAccountID == accountID {
+			delete(d.files, id)
+		}
+	}
+	// 2. Add new files to memory
+	for i := range newFiles {
+		d.files[newFiles[i].ID] = &newFiles[i]
+	}
+	d.mu.Unlock()
+
+	// 3. Batch persist to MongoDB asynchronously
+	if !d.isConnected || d.mongoDb == nil {
+		return
+	}
+	go func(filesToPersist []models.FileMetadata) {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+
+		col := d.mongoDb.Collection("file_metadata")
+		_, _ = col.DeleteMany(ctx, bson.M{"user_id": userID, "cloud_account_id": accountID})
+
+		if len(filesToPersist) == 0 {
+			return
+		}
+
+		// Insert in chunks of 2000
+		chunkSize := 2000
+		for i := 0; i < len(filesToPersist); i += chunkSize {
+			end := i + chunkSize
+			if end > len(filesToPersist) {
+				end = len(filesToPersist)
+			}
+			chunk := filesToPersist[i:end]
+			docs := make([]interface{}, len(chunk))
+			for j := range chunk {
+				docs[j] = chunk[j]
+			}
+			_, _ = col.InsertMany(ctx, docs)
+		}
+	}(newFiles)
 }
 
 func (d *Database) DeleteFilesByVirtualPath(userID, exactPath, prefixPath string) {

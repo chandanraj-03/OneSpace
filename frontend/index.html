@@ -88,6 +88,9 @@
 				<a href="#login" id="header-btn-auth" class="btn-icon" title="Account / Sign In" aria-label="Account">
 					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><circle cx="12" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/></svg>
 				</a>
+				<button type="button" id="btn-shortcuts-toggle" class="btn-icon" title="Keyboard Shortcuts (Press ?)" aria-label="Keyboard Shortcuts">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="6" y1="14" x2="6.01" y2="14"/><line x1="18" y1="14" x2="18.01" y2="14"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+				</button>
 				<button type="button" id="btn-theme-toggle" class="btn-icon" title="Toggle dark/light theme">
 					<span id="theme-icon-container"></span>
 				</button>
@@ -301,15 +304,30 @@
 			</div>
 		</div>
 
-		<!-- File Preview Modal -->
+		<!-- File Preview Modal with Carousel Navigation & Mobile QR -->
 		<div id="modal-preview" class="modal-backdrop hidden">
-			<div class="modal-card modal-card-lg">
+			<div class="modal-card modal-card-lg preview-modal-card">
 				<div class="modal-header">
 					<div class="preview-header-info">
 						<h3 id="preview-title" class="modal-title truncate">File Preview</h3>
-						<span id="preview-meta" class="preview-meta-text tabular-nums"></span>
+						<div class="preview-meta-row">
+							<span id="preview-meta" class="preview-meta-text tabular-nums"></span>
+							<span id="preview-counter" class="preview-counter-chip tabular-nums hidden">1 of 1</span>
+						</div>
 					</div>
 					<div class="preview-header-actions">
+						<div class="preview-nav-group">
+							<button type="button" id="btn-preview-prev" class="btn-icon-sm" title="Previous Item (Left Arrow &larr;)" aria-label="Previous file">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-svg"><path d="m15 18-6-6 6-6"/></svg>
+							</button>
+							<button type="button" id="btn-preview-next" class="btn-icon-sm" title="Next Item (Right Arrow &rarr;)" aria-label="Next file">
+								<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-svg"><path d="m9 18 6-6-6-6"/></svg>
+							</button>
+						</div>
+						<button type="button" id="preview-qr-btn" class="btn-secondary btn-sm" title="Mobile Download QR Code">
+							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+							<span>Mobile QR</span>
+						</button>
 						<a id="preview-download-btn" href="#" download class="btn-secondary btn-sm">
 							<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
 							<span>Download</span>
@@ -317,9 +335,72 @@
 						<button type="button" class="btn-icon-sm modal-close" aria-label="Close preview">&times;</button>
 					</div>
 				</div>
-				<div id="preview-body" class="preview-body">
-					<!-- Preview content injected here -->
+				<div class="preview-stage-wrap">
+					<button type="button" id="btn-preview-stage-prev" class="preview-stage-arrow preview-stage-prev" title="Previous (Left Arrow &larr;)" aria-label="Previous">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m15 18-6-6 6-6"/></svg>
+					</button>
+					<div id="preview-body" class="preview-body">
+						<!-- Preview content injected here -->
+					</div>
+					<button type="button" id="btn-preview-stage-next" class="preview-stage-arrow preview-stage-next" title="Next (Right Arrow &rarr;)" aria-label="Next">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m9 18 6-6-6-6"/></svg>
+					</button>
 				</div>
+			</div>
+		</div>
+
+		<!-- Mobile QR Code Direct Download Modal -->
+		<div id="modal-qr-code" class="modal-backdrop hidden">
+			<div class="modal-card modal-card-sm qr-modal-card">
+				<div class="modal-header">
+					<div class="modal-title-with-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
+						<h3 class="modal-title">Mobile Direct Download</h3>
+					</div>
+					<button type="button" class="btn-icon-sm modal-close" aria-label="Close modal">&times;</button>
+				</div>
+				<div class="modal-body qr-modal-body">
+					<div class="qr-file-summary">
+						<span id="qr-file-name" class="qr-file-name truncate">file.ext</span>
+						<span id="qr-file-size" class="qr-file-size tabular-nums"></span>
+					</div>
+					<div class="qr-code-wrapper">
+						<div id="qr-canvas-container" class="qr-canvas-container">
+							<!-- QR Canvas or SVG injected here -->
+						</div>
+					</div>
+					<p class="qr-instruction">Scan with your phone camera or QR code scanner to download directly to your mobile device.</p>
+					<div class="qr-link-copy-wrap">
+						<input type="text" id="qr-direct-link-input" class="form-input text-xs" readonly>
+						<button type="button" id="btn-copy-qr-link" class="btn-secondary btn-sm">Copy Link</button>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<!-- Custom Account Alias / Nickname Modal -->
+		<div id="modal-edit-alias" class="modal-backdrop hidden">
+			<div class="modal-card">
+				<div class="modal-header">
+					<div class="modal-title-with-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+						<h3 class="modal-title">Edit Drive Nickname</h3>
+					</div>
+					<button type="button" class="btn-icon-sm modal-close" aria-label="Close modal">&times;</button>
+				</div>
+				<form id="form-edit-alias" class="modal-body">
+					<input type="hidden" id="edit-alias-account-id">
+					<p class="modal-sub">Assign a friendly custom name (e.g. "Work Drive", "Personal Photos", "Archive Mega") to easily identify this connected cloud drive across OneSpace.</p>
+					<div class="form-group">
+						<label for="input-account-alias" class="form-label">Custom Nickname</label>
+						<input type="text" id="input-account-alias" class="form-input" placeholder="e.g. Work Google Drive" maxlength="40" required autofocus>
+					</div>
+					<div class="modal-actions">
+						<button type="button" id="btn-reset-alias" class="btn-secondary">Reset to Default</button>
+						<button type="button" class="btn-secondary modal-close">Cancel</button>
+						<button type="submit" class="btn-primary">Save Nickname</button>
+					</div>
+				</form>
 			</div>
 		</div>
 
@@ -349,6 +430,123 @@
 						<button type="submit" id="btn-submit-mega" class="btn-primary">Connect MEGA</button>
 					</div>
 				</form>
+			</div>
+		</div>
+
+		<!-- Custom Floating Context Menu -->
+		<div id="file-context-menu" class="file-context-menu hidden" role="menu" aria-label="File Options">
+			<!-- Options dynamically populated or bound in main.js -->
+			<button type="button" class="context-item" data-ctx-action="open">
+				<span class="context-icon" id="ctx-icon-open"></span>
+				<span class="context-label" id="ctx-label-open">Open</span>
+				<kbd class="context-shortcut">Enter</kbd>
+			</button>
+			<button type="button" class="context-item" data-ctx-action="preview">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+				<span class="context-label">Quick Preview</span>
+				<kbd class="context-shortcut">Space</kbd>
+			</button>
+			<button type="button" class="context-item" data-ctx-action="details">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg></span>
+				<span class="context-label">View Details</span>
+				<kbd class="context-shortcut">Alt I</kbd>
+			</button>
+			<div class="context-divider"></div>
+			<button type="button" class="context-item" data-ctx-action="download">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></span>
+				<span class="context-label">Download</span>
+			</button>
+			<button type="button" class="context-item" data-ctx-action="copy-link">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></span>
+				<span class="context-label">Copy Direct Link</span>
+			</button>
+			<button type="button" class="context-item" data-ctx-action="qr">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg></span>
+				<span class="context-label">Mobile Download QR</span>
+			</button>
+			<button type="button" class="context-item" data-ctx-action="copy-path">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></span>
+				<span class="context-label">Copy Path</span>
+			</button>
+			<div class="context-divider"></div>
+			<button type="button" class="context-item" data-ctx-action="star">
+				<span class="context-icon" id="ctx-icon-star"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg></span>
+				<span class="context-label" id="ctx-label-star">Star</span>
+			</button>
+			<button type="button" class="context-item" data-ctx-action="rename">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></span>
+				<span class="context-label">Rename</span>
+				<kbd class="context-shortcut">F2</kbd>
+			</button>
+			<div class="context-divider"></div>
+			<button type="button" class="context-item text-danger" data-ctx-action="delete">
+				<span class="context-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></span>
+				<span class="context-label">Delete</span>
+				<kbd class="context-shortcut">Del</kbd>
+			</button>
+		</div>
+
+		<!-- File Inspector Slide-over Drawer -->
+		<aside id="file-inspector-drawer" class="inspector-drawer hidden" aria-label="File Details">
+			<div class="inspector-header">
+				<div class="inspector-header-title-wrap">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+					<h3 class="inspector-title">Item Details</h3>
+				</div>
+				<button type="button" id="btn-close-inspector" class="btn-icon-sm" aria-label="Close details panel">&times;</button>
+			</div>
+			<div id="inspector-content" class="inspector-body">
+				<!-- Injected by main.js -->
+			</div>
+		</aside>
+
+		<!-- Fullscreen Drag-and-Drop Upload Overlay -->
+		<div id="drag-drop-overlay" class="drag-drop-overlay hidden" aria-hidden="true">
+			<div class="drag-drop-card">
+				<div class="drag-drop-icon-pulse">
+					<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg-xl"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+				</div>
+				<h2 class="drag-drop-title">Drop files or folders anywhere</h2>
+				<p class="drag-drop-sub">Uploading to: <strong id="drag-drop-path">/</strong></p>
+				<span class="drag-drop-badge">Streamed directly into your unified cloud pool</span>
+			</div>
+		</div>
+
+		<!-- Keyboard Shortcuts Modal -->
+		<div id="modal-shortcuts" class="modal-backdrop hidden">
+			<div class="modal-card modal-card-md">
+				<div class="modal-header">
+					<div class="modal-title-with-icon">
+						<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="icon-svg"><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="6" y1="14" x2="6.01" y2="14"/><line x1="18" y1="14" x2="18.01" y2="14"/><line x1="10" y1="14" x2="14" y2="14"/></svg>
+						<h3 class="modal-title">Keyboard Shortcuts</h3>
+					</div>
+					<button type="button" class="btn-icon-sm modal-close" aria-label="Close shortcuts modal">&times;</button>
+				</div>
+				<div class="modal-body">
+					<div class="shortcuts-grid">
+						<div class="shortcut-group">
+							<h4 class="shortcut-group-title">Navigation & Search</h4>
+							<div class="shortcut-row"><span class="shortcut-desc">Global Search</span><kbd class="kbd-key">Ctrl K</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Open selected folder / Preview</span><kbd class="kbd-key">Enter</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Preview Next / Prev File</span><kbd class="kbd-key">&larr; / &rarr;</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Navigate file selection</span><kbd class="kbd-key">&uarr; / &darr;</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Close dialog / Deselect</span><kbd class="kbd-key">Esc</kbd></div>
+						</div>
+						<div class="shortcut-group">
+							<h4 class="shortcut-group-title">File Operations</h4>
+							<div class="shortcut-row"><span class="shortcut-desc">Quick Look / Preview</span><kbd class="kbd-key">Space</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Select All Files</span><kbd class="kbd-key">Ctrl A</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Range Selection</span><kbd class="kbd-key">Shift + Click</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Rename File</span><kbd class="kbd-key">F2</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Delete Selected</span><kbd class="kbd-key">Delete</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">Item Details Drawer</span><kbd class="kbd-key">Alt I</kbd></div>
+							<div class="shortcut-row"><span class="shortcut-desc">This Cheat Sheet</span><kbd class="kbd-key">?</kbd></div>
+						</div>
+					</div>
+					<div class="modal-actions">
+						<button type="button" class="btn-primary modal-close">Got It</button>
+					</div>
+				</div>
 			</div>
 		</div>
 

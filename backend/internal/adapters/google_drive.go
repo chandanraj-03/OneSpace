@@ -15,6 +15,7 @@ import (
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/drive/v3"
+	"google.golang.org/api/googleapi"
 	"google.golang.org/api/option"
 )
 
@@ -280,7 +281,17 @@ func (a *GoogleDriveAdapter) DeleteFile(ctx context.Context, remoteID string) er
 	if err != nil {
 		return err
 	}
-	return srv.Files.Delete(remoteID).Context(ctx).Do()
+	err = srv.Files.Delete(remoteID).Context(ctx).Do()
+	if err != nil {
+		if gErr, ok := err.(*googleapi.Error); ok && gErr.Code == 404 {
+			return nil
+		}
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "notFound") {
+			return nil
+		}
+		return err
+	}
+	return nil
 }
 
 func (a *GoogleDriveAdapter) RenameFile(ctx context.Context, remoteID, newName string) error {

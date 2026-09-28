@@ -1,6 +1,5 @@
 import dropboxLogo from './assets/dropbox.svg';
 import googleDriveLogo from './assets/google-drive.svg';
-import googlePhotosLogo from './assets/google-photos.svg';
 import megaLogo from './assets/mega.svg';
 
 export const PROVIDERS = {
@@ -11,14 +10,6 @@ export const PROVIDERS = {
 		color: '#4285F4',
 		accentColor: '#34A853',
 		badgeClass: 'provider-google',
-	},
-	google_photos: {
-		key: 'google_photos',
-		label: 'Google Photos',
-		icon: googlePhotosLogo,
-		color: '#EA4335',
-		accentColor: '#FBBC05',
-		badgeClass: 'provider-google-photos',
 	},
 	dropbox: {
 		key: 'dropbox',

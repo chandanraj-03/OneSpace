@@ -30,12 +30,19 @@ export const API_BASE_URL = resolveApiBaseUrl();
 export const WS_BASE_URL = resolveWsBaseUrl(API_BASE_URL);
 
 async function request(path, options = {}) {
+	const headers = {
+		'Content-Type': 'application/json',
+		...(options.headers || {}),
+	};
+
+	const token = localStorage.getItem('onespace-session-token');
+	if (token && !headers['Authorization']) {
+		headers['Authorization'] = `Bearer ${token}`;
+	}
+
 	const response = await fetch(`${API_BASE_URL}${path}`, {
 		credentials: 'include',
-		headers: {
-			'Content-Type': 'application/json',
-			...(options.headers || {}),
-		},
+		headers,
 		...options,
 	});
 
@@ -110,9 +117,6 @@ export const api = {
 	getGoogleConnectUrl() {
 		return request('/accounts/google/connect');
 	},
-	getGooglePhotosConnectUrl() {
-		return request('/accounts/google-photos/connect');
-	},
 	getDropboxConnectUrl() {
 		return request('/accounts/dropbox/connect');
 	},
@@ -143,19 +147,40 @@ export const api = {
 		});
 	},
 	async uploadFile(uploadId, file, options = {}) {
+		if (!uploadId) {
+			throw new Error('Upload ID is missing or invalid');
+		}
+
 		const formData = new FormData();
 		formData.append('file', file);
+
+		const uploadHeaders = { ...(options.headers || {}) };
+		const token = localStorage.getItem('onespace-session-token');
+		if (token && !uploadHeaders['Authorization']) {
+			uploadHeaders['Authorization'] = `Bearer ${token}`;
+		}
+		if (token && !uploadHeaders['X-Session-Token']) {
+			uploadHeaders['X-Session-Token'] = token;
+		}
 
 		const response = await fetch(`${API_BASE_URL}/uploads/${uploadId}/stream`, {
 			method: 'POST',
 			credentials: 'include',
+			headers: uploadHeaders,
 			body: formData,
 			signal: options.signal,
 		});
 
 		if (!response.ok) {
-			const payload = await response.json().catch(() => ({ error: 'Upload failed' }));
-			throw new Error(payload.error || 'Upload failed');
+			const text = await response.text().catch(() => '');
+			let msg = 'Upload failed';
+			try {
+				const payload = JSON.parse(text);
+				msg = payload.error || payload.message || msg;
+			} catch {
+				if (text) msg = text;
+			}
+			throw new Error(msg);
 		}
 
 		return response.json();
@@ -164,10 +189,14 @@ export const api = {
 		return new WebSocket(`${WS_BASE_URL}?uploadId=${encodeURIComponent(uploadId)}`);
 	},
 	downloadUrl(fileId) {
-		return `${API_BASE_URL}/files/${fileId}/download`;
+		const token = localStorage.getItem('onespace-session-token');
+		const base = `${API_BASE_URL}/files/${fileId}/download`;
+		return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 	},
 	previewUrl(fileId) {
-		return `${API_BASE_URL}/files/${fileId}/preview`;
+		const token = localStorage.getItem('onespace-session-token');
+		const base = `${API_BASE_URL}/files/${fileId}/preview`;
+		return token ? `${base}?token=${encodeURIComponent(token)}` : base;
 	},
 	getAllocation() {
 		return request('/allocation');

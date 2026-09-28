@@ -67,7 +67,7 @@ export function renderLoginView(container, { state, navigateTo, toggleTheme, sho
 								</svg>
 								<div class="google-auth-text-wrap">
 									<span class="google-auth-main-text">Continue with Google</span>
-									<span class="google-auth-sub-text">Instant 1-click login &amp; account creation</span>
+									<span class="google-auth-sub-text">Instant login &amp; auto-links your Google Drive</span>
 								</div>
 								<span class="google-auth-arrow">${icons.arrowRight}</span>
 							</a>

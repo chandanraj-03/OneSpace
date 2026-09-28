@@ -40,13 +40,18 @@ func (h *UploadHandler) InitiateUpload(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		FileName       string  `json:"file_name"`
 		Size           int64   `json:"size"`
+		FileSize       int64   `json:"file_size"`
 		MimeType       string  `json:"mime_type"`
 		VirtualPath    string  `json:"virtual_path"`
 		RemoteParentID *string `json:"remote_parent_id"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil || body.FileName == "" {
-		http.Error(w, "file_name and size are required", http.StatusBadRequest)
+		http.Error(w, "file_name is required", http.StatusBadRequest)
 		return
+	}
+
+	if body.Size == 0 && body.FileSize > 0 {
+		body.Size = body.FileSize
 	}
 
 	alloc, err := services.Allocator.SelectBestAccount(user.ID, body.Size)
@@ -89,6 +94,8 @@ func (h *UploadHandler) InitiateUpload(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"upload_id":     session.ID,
+		"session_token": session.Token,
 		"data": map[string]interface{}{
 			"upload_id":     session.ID,
 			"session_token": session.Token,

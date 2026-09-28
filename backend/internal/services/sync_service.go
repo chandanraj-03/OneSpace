@@ -110,10 +110,7 @@ func (s *SyncService) RunDeltaSync(ctx context.Context, userID string) (*SyncRep
 			continue
 		}
 
-		s.db.DeleteFilesByCloudAccount(userID, acc.ID)
-		for i := range files {
-			s.db.UpsertFile(&files[i])
-		}
+		s.db.ReplaceFilesForAccount(userID, acc.ID, files)
 		changes += len(files)
 		accountDetails = append(accountDetails, AccountSyncInfo{
 			Email:    acc.Email,

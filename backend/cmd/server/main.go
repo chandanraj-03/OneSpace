@@ -110,7 +110,6 @@ func main() {
 			acc.Delete("/accounts/{id}", accountH.DisconnectAccount)
 			acc.Get("/accounts/google/status", accountH.GoogleStatus)
 			acc.Get("/accounts/google/connect", accountH.GoogleConnect)
-			acc.Get("/accounts/google-photos/connect", accountH.GooglePhotosConnect)
 			acc.Get("/accounts/dropbox/status", accountH.DropboxStatus)
 			acc.Get("/accounts/dropbox/connect", accountH.DropboxConnect)
 			acc.Get("/accounts/mega/status", accountH.MegaStatus)

@@ -50,7 +50,9 @@ func (h *FileHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.db.CountFilesByUser(user.ID) == 0 && len(h.db.ListActiveCloudAccounts(user.ID)) > 0 {
-		_, _ = services.Sync.RunDeltaSync(r.Context(), user.ID)
+		go func(uid string) {
+			_, _ = services.Sync.RunDeltaSync(context.Background(), uid)
+		}(user.ID)
 	}
 
 	var files []models.FileMetadata
@@ -201,7 +203,11 @@ func (h *FileHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {
 
 	file := h.db.GetFileByID(user.ID, fileID)
 	if file == nil {
-		http.Error(w, "File not found", http.StatusNotFound)
+		// Idempotent deletion: already removed or non-existent
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]interface{}{
+			"data": map[string]bool{"success": true},
+		})
 		return
 	}
 
@@ -209,11 +215,19 @@ func (h *FileHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {
 		exactPath := strings.TrimSuffix(file.VirtualPath, "/") + "/" + file.FileName
 		prefixPath := exactPath + "/%"
 		h.db.DeleteFilesByVirtualPath(user.ID, exactPath, prefixPath)
-	} else if file.CloudAccountID != "" && file.RemoteFileID != "" {
+	}
+
+	if file.CloudAccountID != "" && file.RemoteFileID != "" {
 		acc := h.db.GetCloudAccount(user.ID, file.CloudAccountID)
 		if acc != nil {
 			if adapter, err := adapters.CreateAdapter(acc, h.cfg.EncryptionKey); err == nil {
-				_ = adapter.DeleteFile(r.Context(), file.RemoteFileID)
+				delCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				_ = adapter.DeleteFile(delCtx, file.RemoteFileID)
+				cancel()
+			}
+			if file.FileSize > 0 && acc.UsedSpace >= file.FileSize {
+				acc.UsedSpace -= file.FileSize
+				h.db.UpsertCloudAccount(acc)
 			}
 		}
 	}
@@ -240,11 +254,22 @@ func (h *FileHandler) BulkDeleteFiles(w http.ResponseWriter, r *http.Request) {
 	for _, id := range body.IDs {
 		file := h.db.GetFileByID(user.ID, id)
 		if file != nil {
+			if file.IsFolder {
+				exactPath := strings.TrimSuffix(file.VirtualPath, "/") + "/" + file.FileName
+				prefixPath := exactPath + "/%"
+				h.db.DeleteFilesByVirtualPath(user.ID, exactPath, prefixPath)
+			}
 			if file.CloudAccountID != "" && file.RemoteFileID != "" {
 				acc := h.db.GetCloudAccount(user.ID, file.CloudAccountID)
 				if acc != nil {
 					if adapter, err := adapters.CreateAdapter(acc, h.cfg.EncryptionKey); err == nil {
-						_ = adapter.DeleteFile(r.Context(), file.RemoteFileID)
+						delCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+						_ = adapter.DeleteFile(delCtx, file.RemoteFileID)
+						cancel()
+					}
+					if file.FileSize > 0 && acc.UsedSpace >= file.FileSize {
+						acc.UsedSpace -= file.FileSize
+						h.db.UpsertCloudAccount(acc)
 					}
 				}
 			}
@@ -282,7 +307,14 @@ func (h *FileHandler) DownloadFile(w http.ResponseWriter, r *http.Request) {
 
 	reader, mimeType, size, err := adapter.DownloadStream(r.Context(), file.RemoteFileID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errStr := err.Error()
+		if strings.Contains(errStr, "404") || strings.Contains(errStr, "notFound") || strings.Contains(errStr, "File not found") {
+			// Remote file does not exist anymore. Clean up stale metadata record.
+			h.db.DeleteFile(user.ID, fileID)
+			http.Error(w, "The file no longer exists on remote cloud storage and has been removed from your index. Please refresh your view.", http.StatusNotFound)
+			return
+		}
+		http.Error(w, errStr, http.StatusInternalServerError)
 		return
 	}
 	defer reader.Close()
@@ -321,7 +353,14 @@ func (h *FileHandler) PreviewFile(w http.ResponseWriter, r *http.Request) {
 
 	reader, mimeType, _, err := adapter.DownloadStream(context.Background(), file.RemoteFileID)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		errStr := err.Error()
+		if strings.Contains(errStr, "404") || strings.Contains(errStr, "notFound") || strings.Contains(errStr, "File not found") {
+			// Remote file does not exist anymore. Clean up stale metadata record.
+			h.db.DeleteFile(user.ID, fileID)
+			http.Error(w, "The file no longer exists on remote cloud storage and has been removed from your index.", http.StatusNotFound)
+			return
+		}
+		http.Error(w, errStr, http.StatusInternalServerError)
 		return
 	}
 	defer reader.Close()

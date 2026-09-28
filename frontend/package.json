@@ -11,5 +11,8 @@
   },
   "devDependencies": {
     "vite": "^8.0.12"
+  },
+  "dependencies": {
+    "qrcode": "^1.5.4"
   }
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 
 	"onespace/backend/internal/config"
 	"onespace/backend/internal/database"
@@ -30,6 +31,16 @@ func AttachAuthContext(cfg *config.Config, db *database.Database) func(next http
 			var token string
 			if cookie, err := r.Cookie(cfg.AuthCookieName); err == nil {
 				token = cookie.Value
+			}
+			if token == "" {
+				authHeader := r.Header.Get("Authorization")
+				if strings.HasPrefix(authHeader, "Bearer ") {
+					token = strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
+				} else if custom := r.Header.Get("X-Session-Token"); custom != "" {
+					token = strings.TrimSpace(custom)
+				} else if queryToken := r.URL.Query().Get("token"); queryToken != "" {
+					token = strings.TrimSpace(queryToken)
+				}
 			}
 
 			var user *models.User

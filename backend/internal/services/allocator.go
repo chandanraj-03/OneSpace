@@ -36,9 +36,6 @@ func (s *AllocatorService) SelectBestAccount(userID string, requiredBytes int64)
 
 	var candidates []accCandidate
 	for _, acc := range accounts {
-		if acc.Provider == "google_photos" {
-			continue // Readonly
-		}
 		free := acc.TotalSpace - acc.UsedSpace
 		if free >= requiredBytes || acc.TotalSpace == 0 {
 			candidates = append(candidates, accCandidate{
@@ -51,12 +48,10 @@ func (s *AllocatorService) SelectBestAccount(userID string, requiredBytes int64)
 	if len(candidates) == 0 {
 		// Return any writable account if strict space check fails
 		for _, acc := range accounts {
-			if acc.Provider != "google_photos" {
-				candidates = append(candidates, accCandidate{
-					account:   acc,
-					freeSpace: acc.TotalSpace - acc.UsedSpace,
-				})
-			}
+			candidates = append(candidates, accCandidate{
+				account:   acc,
+				freeSpace: acc.TotalSpace - acc.UsedSpace,
+			})
 		}
 	}
 

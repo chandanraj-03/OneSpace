@@ -128,42 +128,7 @@ func (h *AccountHandler) GoogleConnect(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *AccountHandler) GooglePhotosConnect(w http.ResponseWriter, r *http.Request) {
-	user := middleware.GetUserFromContext(r.Context())
 
-	state, err := utils.SignOAuthState(map[string]interface{}{
-		"userId":   user.ID,
-		"provider": "google_photos",
-		"nonce":    uuid.NewString(),
-	}, h.cfg.AuthSecret)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	conf := &oauth2.Config{
-		ClientID:     h.cfg.GoogleClientID,
-		ClientSecret: h.cfg.GoogleClientSecret,
-		RedirectURL:  h.cfg.GoogleRedirectURI,
-		Scopes: []string{
-			"openid",
-			"https://www.googleapis.com/auth/userinfo.email",
-			"https://www.googleapis.com/auth/photoslibrary.readonly",
-		},
-		Endpoint: google.Endpoint,
-	}
-
-	authURL := conf.AuthCodeURL(state, oauth2.AccessTypeOffline, oauth2.SetAuthURLParam("prompt", "consent"))
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"data": map[string]string{
-			"authorizationUrl": authURL,
-			"state":            state,
-			"redirectUri":      h.cfg.GoogleRedirectURI,
-		},
-	})
-}
 
 func (h *AccountHandler) DropboxStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -309,6 +274,8 @@ func (h *AccountHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) 
 				"openid",
 				"https://www.googleapis.com/auth/userinfo.email",
 				"https://www.googleapis.com/auth/userinfo.profile",
+				"https://www.googleapis.com/auth/drive",
+				"https://www.googleapis.com/auth/drive.metadata",
 			},
 			Endpoint: google.Endpoint,
 		}
@@ -351,83 +318,66 @@ func (h *AccountHandler) GoogleCallback(w http.ResponseWriter, r *http.Request) 
 		_, sessionToken := services.Auth.CreateSession(user.ID)
 		services.Auth.SetAuthCookie(w, sessionToken)
 
-		frontendURL.Fragment = "home"
-		http.Redirect(w, r, frontendURL.String(), http.StatusFound)
-		return
-	}
-
-	// 2. Google Photos Link flow
-	if statePayload["provider"] == "google_photos" {
-		userID, _ := statePayload["userId"].(string)
-		conf := &oauth2.Config{
-			ClientID:     h.cfg.GoogleClientID,
-			ClientSecret: h.cfg.GoogleClientSecret,
-			RedirectURL:  h.cfg.GoogleRedirectURI,
-			Scopes: []string{
-				"openid",
-				"https://www.googleapis.com/auth/userinfo.email",
-				"https://www.googleapis.com/auth/photoslibrary.readonly",
-			},
-			Endpoint: google.Endpoint,
+		// Automatically link this Google account as the first connected cloud drive
+		refreshToken := token.RefreshToken
+		if refreshToken == "" {
+			for _, ea := range h.db.ListCloudAccounts(user.ID) {
+				if ea.Provider == "google_drive" && strings.ToLower(ea.Email) == email {
+					var oldCreds adapters.GoogleDriveCredentials
+					if err := utils.DecryptJSON(ea.EncryptedCredentials, h.cfg.EncryptionKey, &oldCreds); err == nil && oldCreds.RefreshToken != "" {
+						refreshToken = oldCreds.RefreshToken
+						break
+					}
+				}
+			}
 		}
 
-		token, err := conf.Exchange(ctx, code)
-		if err != nil {
-			frontendURL.Fragment = "storage"
-			q := frontendURL.Query()
-			q.Set("error", err.Error())
-			frontendURL.RawQuery = q.Encode()
-			http.Redirect(w, r, frontendURL.String(), http.StatusFound)
-			return
-		}
-
-		oauth2Service, _ := googleOauth2.NewService(ctx, option.WithTokenSource(conf.TokenSource(ctx, token)))
-		userInfo, err := oauth2Service.Userinfo.Get().Do()
-		if err != nil || userInfo.Email == "" {
-			frontendURL.Fragment = "storage"
-			q := frontendURL.Query()
-			q.Set("error", "Unable to read Google account email")
-			frontendURL.RawQuery = q.Encode()
-			http.Redirect(w, r, frontendURL.String(), http.StatusFound)
-			return
-		}
-
-		email := strings.ToLower(strings.TrimSpace(userInfo.Email))
 		creds := adapters.GoogleDriveCredentials{
 			ClientID:     h.cfg.GoogleClientID,
 			ClientSecret: h.cfg.GoogleClientSecret,
 			RedirectURI:  h.cfg.GoogleRedirectURI,
-			RefreshToken: token.RefreshToken,
+			RefreshToken: refreshToken,
 			AccessToken:  token.AccessToken,
 			ExpiryDate:   token.Expiry.UnixMilli(),
 		}
 		encCreds, _ := utils.EncryptJSON(creds, h.cfg.EncryptionKey)
 
+		var totalSpace int64 = 15 * 1024 * 1024 * 1024
+		var usedSpace int64 = 0
+		if driveSrv, err := drive.NewService(ctx, option.WithTokenSource(conf.TokenSource(ctx, token))); err == nil {
+			if about, err := driveSrv.About.Get().Fields("storageQuota").Context(ctx).Do(); err == nil && about.StorageQuota != nil {
+				if about.StorageQuota.Limit > 0 {
+					totalSpace = about.StorageQuota.Limit
+				}
+				usedSpace = about.StorageQuota.Usage
+			}
+		}
+
 		now := time.Now()
 		acc := &models.CloudAccount{
 			ID:                   uuid.NewString(),
-			UserID:               userID,
-			Provider:             "google_photos",
+			UserID:               user.ID,
+			Provider:             "google_drive",
 			Email:                email,
 			EncryptedCredentials: encCreds,
-			TotalSpace:           15 * 1024 * 1024 * 1024,
-			UsedSpace:            0,
+			TotalSpace:           totalSpace,
+			UsedSpace:            usedSpace,
 			Status:               "active",
 			CreatedAt:            now,
 			UpdatedAt:            now,
 		}
 		h.db.UpsertCloudAccount(acc)
+
 		go func(uid string) {
 			_, _ = services.Sync.RunDeltaSync(context.Background(), uid)
-		}(userID)
+		}(user.ID)
 
-		frontendURL.Fragment = "storage"
-		q := frontendURL.Query()
-		q.Set("google_photos", "connected")
-		frontendURL.RawQuery = q.Encode()
+		frontendURL.Fragment = fmt.Sprintf("home?token=%s", sessionToken)
 		http.Redirect(w, r, frontendURL.String(), http.StatusFound)
 		return
 	}
+
+
 
 	// 3. Google Drive Link flow
 	userID, _ := statePayload["userId"].(string)

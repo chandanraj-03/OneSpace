@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -25,7 +26,93 @@ func NewHealthHandler(cfg *config.Config, db *database.Database) *HealthHandler 
 func (h *HealthHandler) Root(w http.ResponseWriter, r *http.Request) {
 	if strings.Contains(r.Header.Get("Accept"), "text/html") {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		html := strings.ReplaceAll(healthPageHTML, "{{FRONTEND_URL}}", h.cfg.FrontendURL)
+		html = strings.ReplaceAll(html, "{{APP_MODE}}", h.cfg.AppMode)
+		_, _ = io.WriteString(w, html)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"service":   "onespace-api",
+		"runtime":   "go",
+		"status":    "ok",
+		"message":   "OneSpace API backend is active and healthy.",
+		"mode":      h.cfg.AppMode,
+		"frontend":  h.cfg.FrontendURL,
+		"health":    "/api/health",
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
+	user := middleware.GetUserFromContext(r.Context())
+
+	authSummary := map[string]interface{}{}
+	if services.Auth != nil {
+		authSummary = services.Auth.GetAuthSummary(user)
+	}
+
+	syncStatus := map[string]interface{}{"lastRunAt": nil, "isRunning": false}
+	if services.Sync != nil && user != nil {
+		rep := services.Sync.GetLastReport(user.ID)
+		syncStatus["lastRunAt"] = rep.LastRunAt
+		syncStatus["isRunning"] = rep.IsRunning
+		syncStatus["changesDetected"] = rep.ChangesDetected
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"status":    "ok",
+		"service":   "onespace-api",
+		"runtime":   "go",
+		"config":    h.cfg.Redact(),
+		"auth":      authSummary,
+		"sync":      syncStatus,
+		"timestamp": time.Now().UTC().Format(time.RFC3339),
+	})
+}
+
+func (h *HealthHandler) NotFound(w http.ResponseWriter, r *http.Request) {
+	if strings.Contains(r.Header.Get("Accept"), "text/html") {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.WriteHeader(http.StatusNotFound)
 		fmt.Fprintf(w, `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>404 Not Found &bull; OneSpace API</title>
+  <style>
+    body { font-family: system-ui, sans-serif; background: #090d16; color: #f9fafb; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+    .card { text-align: center; max-width: 440px; padding: 32px; background: rgba(17, 24, 39, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; }
+    h2 { margin: 0 0 8px; font-size: 20px; }
+    p { color: #9ca3af; font-size: 14px; margin-bottom: 20px; word-break: break-all; }
+    a { color: #818cf8; text-decoration: none; font-weight: 600; font-size: 14px; }
+    a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h2>404 &bull; Route Not Found</h2>
+    <p>Endpoint <code>%s</code> does not exist on this API server.</p>
+    <a href="/">&larr; Return to API Home</a>
+  </div>
+</body>
+</html>`, r.URL.Path)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	_ = json.NewEncoder(w).Encode(map[string]interface{}{
+		"error":    "Not Found",
+		"message":  fmt.Sprintf("Cannot %s %s", r.Method, r.URL.Path),
+		"health":   "/api/health",
+		"frontend": h.cfg.FrontendURL,
+	})
+}
+
+const healthPageHTML = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -179,7 +266,7 @@ func (h *HealthHandler) Root(w http.ResponseWriter, r *http.Request) {
     <p class="lead">The high-performance multi-cloud aggregator backend API is active and ready to service frontend requests.</p>
     
     <div class="actions">
-      <a href="%s" class="btn btn-primary" target="_blank" rel="noopener">
+      <a href="{{FRONTEND_URL}}" class="btn btn-primary" target="_blank" rel="noopener">
         <span>Open OneSpace Web App</span>
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
       </a>
@@ -191,91 +278,9 @@ func (h *HealthHandler) Root(w http.ResponseWriter, r *http.Request) {
     <div class="meta-card">
       <div class="meta-row"><span>Service:</span><span class="meta-val">onespace-api (Go)</span></div>
       <div class="meta-row"><span>Status:</span><span class="meta-val" style="color:#34d399">HTTP 200 OK</span></div>
-      <div class="meta-row"><span>App Mode:</span><span class="meta-val">%s</span></div>
-      <div class="meta-row"><span>Frontend:</span><span class="meta-val">%s</span></div>
+      <div class="meta-row"><span>App Mode:</span><span class="meta-val">{{APP_MODE}}</span></div>
+      <div class="meta-row"><span>Frontend:</span><span class="meta-val">{{FRONTEND_URL}}</span></div>
     </div>
   </div>
 </body>
-</html>`, h.cfg.FrontendURL, h.cfg.AppMode, h.cfg.FrontendURL)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"service":   "onespace-api",
-		"runtime":   "go",
-		"status":    "ok",
-		"message":   "OneSpace API backend is active and healthy.",
-		"mode":      h.cfg.AppMode,
-		"frontend":  h.cfg.FrontendURL,
-		"health":    "/api/health",
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	})
-}
-
-func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
-	user := middleware.GetUserFromContext(r.Context())
-
-	authSummary := map[string]interface{}{}
-	if services.Auth != nil {
-		authSummary = services.Auth.GetAuthSummary(user)
-	}
-
-	syncStatus := map[string]interface{}{"lastRunAt": nil, "isRunning": false}
-	if services.Sync != nil && user != nil {
-		rep := services.Sync.GetLastReport(user.ID)
-		syncStatus["lastRunAt"] = rep.LastRunAt
-		syncStatus["isRunning"] = rep.IsRunning
-		syncStatus["changesDetected"] = rep.ChangesDetected
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"status":    "ok",
-		"service":   "onespace-api",
-		"runtime":   "go",
-		"config":    h.cfg.Redact(),
-		"auth":      authSummary,
-		"sync":      syncStatus,
-		"timestamp": time.Now().UTC().Format(time.RFC3339),
-	})
-}
-
-func (h *HealthHandler) NotFound(w http.ResponseWriter, r *http.Request) {
-	if strings.Contains(r.Header.Get("Accept"), "text/html") {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.WriteHeader(http.StatusNotFound)
-		fmt.Fprintf(w, `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>404 Not Found &bull; OneSpace API</title>
-  <style>
-    body { font-family: system-ui, sans-serif; background: #090d16; color: #f9fafb; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    .card { text-align: center; max-width: 440px; padding: 32px; background: rgba(17, 24, 39, 0.8); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 16px; }
-    h2 { margin: 0 0 8px; font-size: 20px; }
-    p { color: #9ca3af; font-size: 14px; margin-bottom: 20px; word-break: break-all; }
-    a { color: #818cf8; text-decoration: none; font-weight: 600; font-size: 14px; }
-    a:hover { text-decoration: underline; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <h2>404 &bull; Route Not Found</h2>
-    <p>Endpoint <code>%s</code> does not exist on this API server.</p>
-    <a href="/">&larr; Return to API Home</a>
-  </div>
-</body>
-</html>`, r.URL.Path)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusNotFound)
-	_ = json.NewEncoder(w).Encode(map[string]interface{}{
-		"error":    "Not Found",
-		"message":  fmt.Sprintf("Cannot %s %s", r.Method, r.URL.Path),
-		"health":   "/api/health",
-		"frontend": h.cfg.FrontendURL,
-	})
-}
+</html>`

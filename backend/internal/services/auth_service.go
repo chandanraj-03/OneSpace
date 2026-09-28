@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"onespace/backend/internal/config"
@@ -92,10 +93,20 @@ func (s *AuthService) GetAuthSummary(user *models.User) map[string]interface{} {
 	}
 }
 
+func (s *AuthService) isSecure() bool {
+	if os.Getenv("RENDER") != "" || os.Getenv("ENV") == "production" {
+		return true
+	}
+	if strings.HasPrefix(strings.ToLower(s.cfg.FrontendURL), "https://") {
+		return true
+	}
+	return false
+}
+
 func (s *AuthService) SetAuthCookie(w http.ResponseWriter, token string) {
-	isProd := s.cfg.AppMode == "hosted" || os.Getenv("RENDER") != "" || os.Getenv("ENV") == "production"
+	isSecure := s.isSecure()
 	sameSite := http.SameSiteLaxMode
-	if isProd {
+	if isSecure {
 		sameSite = http.SameSiteNoneMode
 	}
 
@@ -107,7 +118,7 @@ func (s *AuthService) SetAuthCookie(w http.ResponseWriter, token string) {
 		Path:     "/",
 		MaxAge:   maxAge,
 		HttpOnly: true,
-		Secure:   isProd,
+		Secure:   isSecure,
 		SameSite: sameSite,
 	}
 
@@ -115,9 +126,9 @@ func (s *AuthService) SetAuthCookie(w http.ResponseWriter, token string) {
 }
 
 func (s *AuthService) ClearAuthCookie(w http.ResponseWriter) {
-	isProd := s.cfg.AppMode == "hosted" || os.Getenv("RENDER") != "" || os.Getenv("ENV") == "production"
+	isSecure := s.isSecure()
 	sameSite := http.SameSiteLaxMode
-	if isProd {
+	if isSecure {
 		sameSite = http.SameSiteNoneMode
 	}
 
@@ -127,7 +138,7 @@ func (s *AuthService) ClearAuthCookie(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   isProd,
+		Secure:   isSecure,
 		SameSite: sameSite,
 	}
 
